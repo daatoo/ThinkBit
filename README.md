@@ -3,7 +3,7 @@
 ## Team
 | Name | Role | Email | GitHub |
 |------|------|--------|--------|
-| Davit cCheishvili | ... | Cheishvili.Davit@kiu.edu.ge | [@daatoo](https://github.com/daatoo) |
+| Davit Cheishvili | ... | Cheishvili.Davit@kiu.edu.ge | [@daatoo](https://github.com/daatoo) |
 | Nikoloz Modebadze | ... | Modebadze.Nikoloz@kiu.edu.ge | [@NW0RK](https://github.com/NW0RK) |
 | Sandro Iobidze | ... | Chaphidze.Juli@kiu.edu.ge | ... |
 | Juli Chapidze | ... | Iobidze.Sandro@kiu.edu.ge | ... |
