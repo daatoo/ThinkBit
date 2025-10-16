@@ -20,3 +20,6 @@ Brief 2–3-sentence summary of what your project does and why AI is used.
 
 ## Setup
 See [`docs/setup.md`](./docs/setup.md)
+
+## Problem Statement
+Manually censoring inappropriate content in video and audio for different audiences is a time-consuming, costly, and inconsistent process. Parents lack effective, customizable tools to filter content for their children in real-time, while television studios and content creators face significant overhead in producing multiple versions of content for various broadcasting standards. An AI-powered system is required to automatically detect and censor user-defined improper content (e.g., profanity, graphic violence) in video streams, providing a reliable, efficient, and customizable solution.
