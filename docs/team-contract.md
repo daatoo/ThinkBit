@@ -9,7 +9,7 @@
 | --------------------- | ------------------------------------------------------------------- | --------------- |
 | **Nikoloz Modebadze** | [Modebadze.Nikoloz@kiu.edu.ge](mailto:Modebadze.Nikoloz@kiu.edu.ge) | @NW0RK          |
 | **Juli Chapidze**     | [Chaphidze.Juli@kiu.edu.ge](mailto:Chaphidze.Juli@kiu.edu.ge)       | @Juliieett      |
-| **Sandro Iobidze**    | [Iobidze.Sandro@kiu.edu.ge](mailto:Iobidze.Sandro@kiu.edu.ge)       | @[username]     |
+| **Sandro Iobidze**    | [Iobidze.Sandro@kiu.edu.ge](mailto:Iobidze.Sandro@kiu.edu.ge)       | @P4ndro    |
 | **Davit Tcheishvili** | [Cheishvili.Davit@kiu.edu.ge](mailto:Cheishvili.Davit@kiu.edu.ge)   | @daatoo         |
 
 ---
