@@ -98,7 +98,7 @@ By signing below, all members of **Team ThinkBit** agree to follow the above ter
 
 | Member Name           | Signature / Approval                  | Date   |
 | --------------------- | ------------------------------------- | ------ |
-| **Nikoloz Modebadze** | [Signed / Approved via GitHub commit] | [Date] |
+| **Nikoloz Modebadze** | Signed | [10/17/2025] |
 | **Juli Chapidze**     | Signed | 10/17/2025 |
 | **Sandro Iobidze**    | Signed | 10/17/2025 |
 | **Davit Tcheishvili** | Signed | 17 oct 2025 |
