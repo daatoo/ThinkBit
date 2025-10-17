@@ -8,7 +8,7 @@
 | Member Name           | Email                                                               | GitHub Username |
 | --------------------- | ------------------------------------------------------------------- | --------------- |
 | **Nikoloz Modebadze** | [Modebadze.Nikoloz@kiu.edu.ge](mailto:Modebadze.Nikoloz@kiu.edu.ge) | @NW0RK          |
-| **Juli Chapidze**     | [Chaphidze.Juli@kiu.edu.ge](mailto:Chaphidze.Juli@kiu.edu.ge)       | @[username]     |
+| **Juli Chapidze**     | [Chaphidze.Juli@kiu.edu.ge](mailto:Chaphidze.Juli@kiu.edu.ge)       | @Juliieett      |
 | **Sandro Iobidze**    | [Iobidze.Sandro@kiu.edu.ge](mailto:Iobidze.Sandro@kiu.edu.ge)       | @[username]     |
 | **Davit Tcheishvili** | [Cheishvili.Davit@kiu.edu.ge](mailto:Cheishvili.Davit@kiu.edu.ge)   | @daatoo         |
 
@@ -100,5 +100,5 @@ By signing below, all members of **Team ThinkBit** agree to follow the above ter
 | --------------------- | ------------------------------------- | ------ |
 | **Nikoloz Modebadze** | [Signed / Approved via GitHub commit] | [Date] |
 | **Juli Chapidze**     | Signed | 10/17/2025 |
-| **Sandro Iobidze**    | [Signed / Approved via GitHub commit] | [Date] |
+| **Sandro Iobidze**    | Signed | 10/17/2025 |
 | **Davit Tcheishvili** | Signed | 17 oct 2025 |
