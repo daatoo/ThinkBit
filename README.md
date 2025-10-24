@@ -7,10 +7,10 @@ Manually censoring inappropriate content in video and audio for different audien
 ## Team
 | Name | Role | Email | GitHub |
 |------|------|--------|--------|
-| Davit Cheishvili | ... | Cheishvili.Davit@kiu.edu.ge | [@daatoo](https://github.com/daatoo) |
-| Nikoloz Modebadze | ... | Modebadze.Nikoloz@kiu.edu.ge | [@NW0RK](https://github.com/NW0RK) |
-| Juli Chaphidze | ... | Chaphidze.Juli@kiu.edu.ge | [@Juliieett](https://github.com/Juliieett)|
-| Sandro Iobidze | ... | Iobidze.Sandro@kiu.edu.ge | [@P4ndro](https://github.com/P4ndro) |
+| Davit Cheishvili | Documentation & QA Lead | Cheishvili.Davit@kiu.edu.ge | [@daatoo](https://github.com/daatoo) |
+| Nikoloz Modebadze | Project Manager / Coordinator | Modebadze.Nikoloz@kiu.edu.ge | [@NW0RK](https://github.com/NW0RK) |
+| Juli Chaphidze | Frontend Developer | Chaphidze.Juli@kiu.edu.ge | [@Juliieett](https://github.com/Juliieett)|
+| Sandro Iobidze | Backend Developer | Iobidze.Sandro@kiu.edu.ge | [@P4ndro](https://github.com/P4ndro) |
 
 ## Overview
 Brief 2–3-sentence summary of what your project does and why AI is used.
