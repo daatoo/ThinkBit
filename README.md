@@ -21,6 +21,10 @@ Brief 2–3-sentence summary of what your project does and why AI is used.
 - **AI:** OpenAI GPT-4o API
 - **Database:** PostgreSQL + pgvector
 - **Deployment:** Render / Vercel
+- **Computer Vision:** Google Cloud Vision SafeSearch for frame triage
+
+## Computer Vision Modules
+- `aegisai.vision.safe_search.GoogleSafeSearchClient` wraps the Vision API for SafeSearch detection. Inject raw frame bytes or a `gs://` URI and it returns normalized likelihood scores across adult, spoof, medical, violence, and racy categories. Consumers can call `SafeSearchCategoryScores.exceeds(...)` to gate downstream censoring flows.
 
 ## Setup
 See [`docs/setup.md`](./docs/setup.md)
