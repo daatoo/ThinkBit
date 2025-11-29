@@ -13,7 +13,11 @@ Manually censoring inappropriate content in video and audio for different audien
 | Sandro Iobidze | Backend Developer | Iobidze.Sandro@kiu.edu.ge | [@P4ndro](https://github.com/P4ndro) |
 
 ## Overview
-Brief 2–3-sentence summary of what your project does and why AI is used.
+The project, **AegisAI**, is an **AI-powered video censoring platform** designed to automatically detect and filter inappropriate content (like profanity and graphic violence) in video streams.
+
+AI is used to achieve the efficiency, speed, and customization that manual censorship lacks. Specifically, the system utilizes:
+* **Speech-to-Text (STT) models** (e.g., OpenAI's Whisper) to transcribe audio and detect profane language with precise timestamps for muting.
+* **Computer Vision (CV) models** (e.g., Google Vision API) to analyze video frames and identify prohibited visual content like graphic violence or nudity for subsequent blurring or pixelation.
 
 ## Tech Stack
 - **Frontend:** React (Next.js)
