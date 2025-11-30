@@ -35,7 +35,7 @@ from src.aegisai.pipeline.streaming import process_file_audio_only
 # print("Vision Evaluation:", vision_evaluation)
 
 process_file_audio_only(
-    "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4",   # <- change to your real path
+    "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4",   
     chunk_seconds=5,
     text_window_seconds=30,
 )
