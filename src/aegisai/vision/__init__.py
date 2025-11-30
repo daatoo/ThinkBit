@@ -1,19 +1,10 @@
 """
-Vision-related helpers, including Google SafeSearch integration.
+Vision module for image/frame analysis:
+- Google SafeSearch
+- Label detection
 """
 
-from .safe_search import (  # noqa: F401
-    GoogleSafeSearchClient,
-    SafeSearchCategoryScores,
-    SafeSearchError,
-    SafeSearchLikelihood,
-)
 
-__all__ = [
-    "GoogleSafeSearchClient",
-    "SafeSearchCategoryScores",
-    "SafeSearchError",
-    "SafeSearchLikelihood",
-]
+__all__ = []
 
 

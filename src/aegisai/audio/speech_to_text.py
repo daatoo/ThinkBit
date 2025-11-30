@@ -2,7 +2,7 @@ from google.cloud import speech
 from pydub import AudioSegment
 
 
-def transcribe_wav(file_path: str, key_path: str = "aegis-key.json"):
+def transcribe_audio(file_path: str, key_path: str = "/home/david/Desktop/ThinkBit/secrets/aegis-key.json"):
     """
     Transcribe a 16kHz mono LINEAR16 WAV file using Google Speech-to-Text.
     """
