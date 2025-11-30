@@ -4,8 +4,6 @@ from src.aegisai.vision.label_detection import analyze_labels
 from src.aegisai.vision.vision_rules import classify_labels, classify_safesearch
 from src.aegisai.moderation.text_rules import analyze_transcript
 from src.aegisai.pipeline.streaming import process_file_audio_only
-from pathlib import Path
-from src.aegisai.video.ffmpeg_extractor import FFmpegFrameExtractor
 
 # # ---------- TEST AUDIO ----------
 # print("TESTING AUDIO...")
@@ -36,34 +34,13 @@ from src.aegisai.video.ffmpeg_extractor import FFmpegFrameExtractor
 # print("Safe Search Evaluation:", safe_search_evaluation)
 # print("Vision Evaluation:", vision_evaluation)
 
-# process_file_audio_only(
-#     "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4",   
-#     chunk_seconds=5,
-#     text_window_seconds=30,
-#     output_video_path="/home/david/Desktop/ThinkBit/data/samples/test_video_output.mp4",
-# )
+process_file_audio_only(
+    "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4",   
+    chunk_seconds=5,
+    text_window_seconds=30,
+    output_video_path="/home/david/Desktop/ThinkBit/data/samples/test_video_output.mp4",
+)
 
-def test_frame_extraction():
-    video_path = "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4"  # change this to any small video file
-    extractor = FFmpegFrameExtractor()
-
-    print("Testing frame extraction...")
-
-    result = extractor.extract_frames(
-        video_path=Path(video_path),
-        output_dir=Path("./frames_test"),
-        fps=0.5,          # extract 1 frame per second
-        overwrite=True,
-    )
-
-    print("Frames extracted:", len(result.output_paths))
-    for p in result.output_paths[:5]:
-        print(" -", p)
-
-    print("Done.")
-
-
-test_frame_extraction()
 
 
 

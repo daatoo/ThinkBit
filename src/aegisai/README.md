@@ -20,12 +20,17 @@ WebRTC/RTMP moderation.
 
 aegisai/
 │
-├── audio/ # Speech-to-text + audio utilities
-├── video/ # Frame extraction, sampling, reconstruction
-├── vision/ # Google Vision integration + vision rules
-├── moderation/ # Text moderation rules & policies
-├── pipeline/ # Streaming pipeline (audio + video workers)
-└── utils/ # Helper utilities (optional)
+├── audio/          # Speech-to-text transcription and audio utilities
+│
+├── video/          # Frame extraction, sampling, reconstruction, and video muting
+│
+├── vision/         # Google Vision API integration, SafeSearch, label rules
+│
+├── moderation/     # Text moderation rules, keyword policies, profanity lists
+│
+├── pipeline/       # Unified streaming pipeline: audio workers, video workers, decision worker
+│
+└── utils/          # Shared helper utilities (logging, timing, path functions)
 
 
 ---
@@ -93,3 +98,4 @@ process_file_audio_only(
     text_window_seconds=30,
     output_video_path="output-muted.mp4",
 )
+```
