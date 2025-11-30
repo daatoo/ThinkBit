@@ -1,5 +1,5 @@
-from src.aegisai.vision.label_lists import VIOLENCE_LABELS
-from src.aegisai.vision.safe_search import Likelihood
+from .label_lists import VIOLENCE_LABELS
+from .safe_search import Likelihood
 
 
 def classify_safesearch(result):

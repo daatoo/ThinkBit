@@ -4,7 +4,7 @@ Text moderation rules: bad words / profanity detection.
 
 from dataclasses import dataclass
 from typing import List
-from src.aegisai.moderation.bad_words_list import BAD_WORDS  
+from .bad_words_list import BAD_WORDS  
 
 
 @dataclass
