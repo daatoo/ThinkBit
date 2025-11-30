@@ -28,9 +28,8 @@ aegisai/
 │
 ├── moderation/     # Text moderation rules, keyword policies, profanity lists
 │
-├── pipeline/       # Unified streaming pipeline: audio workers, video workers, decision worker
-│
-└── utils/          # Shared helper utilities (logging, timing, path functions)
+└──  pipeline/       # Unified streaming pipeline: audio workers, video workers, decision worker
+
 
 
 ---
