@@ -7,7 +7,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aegisai.video_processing.frame_sampler import FrameSampler, SamplingPlan
+from aegisai.video.frame_sampler import FrameSampler, SamplingPlan
 
 
 class FrameSamplerTests(unittest.TestCase):

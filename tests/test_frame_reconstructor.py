@@ -9,7 +9,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aegisai.video_processing.frame_reconstructor import (
+from aegisai.video.frame_reconstructor import (
     CensorEffectType,
     CensorInstruction,
     FrameReconstructionPipeline,

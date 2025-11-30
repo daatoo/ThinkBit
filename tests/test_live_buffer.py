@@ -7,7 +7,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aegisai.video_processing.live_buffer import BufferedFrame, LiveFrameBuffer
+from aegisai.video.live_buffer import BufferedFrame, LiveFrameBuffer
 
 
 class LiveBufferTests(unittest.TestCase):
