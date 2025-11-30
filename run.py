@@ -38,6 +38,7 @@ process_file_audio_only(
     "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4",   
     chunk_seconds=5,
     text_window_seconds=30,
+    output_video_path="/home/david/Desktop/ThinkBit/data/samples/test_video_output.mp4",
 )
 
 

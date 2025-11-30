@@ -63,6 +63,8 @@ def audio_worker(
     audio_q: "queue.Queue",
     event_q: "queue.Queue",
     text_buffer: TextBuffer,
+    muted_intervals: list[tuple[float, float]],
+    chunk_seconds: int,
 ) -> None:
     """
     Worker that processes audio chunks.
@@ -103,14 +105,13 @@ def audio_worker(
         if text.strip():
             # Update rolling window
             text_buffer.add(ts, text)
-            window_text = text_buffer.get_text()
 
             try:
-                result: TextModerationResult = analyze_text(window_text)
+                result: TextModerationResult = analyze_text(text)
             except Exception as e:
                 print(f"[audio_worker] Error in analyze_text: {e}")
                 result = TextModerationResult(
-                    original_text=window_text,
+                    original_text=text,
                     bad_words=[],
                     count=0,
                     severity=0,
@@ -133,6 +134,9 @@ def audio_worker(
                     "severity": result.severity,
                     "text_window": result.original_text,
                 })
+
+                # Record the interval [ts, ts + chunk_seconds] to mute later
+                muted_intervals.append((ts, ts + chunk_seconds))
 
         audio_q.task_done()
 
@@ -180,6 +184,7 @@ def process_file_audio_only(
     video_path: str,
     chunk_seconds: int = 5,
     text_window_seconds: int = 30,
+    output_video_path: str | None = None,
 ) -> None:
     """
     Process an MP4 file as if it were a live audio stream.
@@ -197,11 +202,12 @@ def process_file_audio_only(
     audio_q: queue.Queue = queue.Queue()
     event_q: queue.Queue = queue.Queue()
     text_buffer = TextBuffer(window_seconds=text_window_seconds)
+    muted_intervals: list[tuple[float, float]] = []
 
     # Start workers
     threading.Thread(
         target=audio_worker,
-        args=(audio_q, event_q, text_buffer),
+        args=(audio_q, event_q, text_buffer, muted_intervals, chunk_seconds),
         daemon=True,
     ).start()
 
@@ -260,4 +266,65 @@ def process_file_audio_only(
         event_q.put(None)
         event_q.join()
 
-    print("[process_file_audio_only] Done.")
+    print("[process_file_audio_only] Analysis done.")
+
+    # If no output path was given, just stop here
+    if output_video_path is None:
+        print("[process_file_audio_only] No output_video_path provided, skipping mute.")
+        return
+
+    merged = merge_intervals(muted_intervals)
+    print(f"[process_file_audio_only] Muted intervals: {merged}")
+
+    if not merged:
+        print("[process_file_audio_only] No bad chunks detected, copying input to output.")
+        # simply copy or re-mux
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", video_path, "-c", "copy", output_video_path],
+            check=True,
+        )
+        return
+    
+    # Build volume filter string to mute all bad intervals
+    volume_filters = []
+    for start, end in merged:
+        volume_filters.append(
+            f"volume=enable='between(t,{start:.3f},{end:.3f})':volume=0"
+        )
+
+    af_filter = ",".join(volume_filters)
+
+    cmd_mute = [
+        "ffmpeg",
+        "-y",
+        "-i", video_path,
+        "-af", af_filter,
+        "-c:v", "copy",          # don't re-encode video
+        "-c:a", "aac",           # or copy/re-encode as you prefer
+        output_video_path,
+    ]
+
+    print("[process_file_audio_only] Running ffmpeg mute...")
+    subprocess.run(cmd_mute, check=True)
+    print("[process_file_audio_only] Muted video written to", output_video_path)
+
+
+
+
+def merge_intervals(intervals: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    if not intervals:
+        return []
+
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged: list[tuple[float, float]] = []
+    cur_start, cur_end = intervals[0]
+
+    for start, end in intervals[1:]:
+        if start <= cur_end:  # overlapping or touching
+            cur_end = max(cur_end, end)
+        else:
+            merged.append((cur_start, cur_end))
+            cur_start, cur_end = start, end
+
+    merged.append((cur_start, cur_end))
+    return merged
