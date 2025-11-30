@@ -18,6 +18,8 @@ WebRTC/RTMP moderation.
 
 # 🔌 Directory Overview
 
+
+```markdown
 aegisai/
 │
 ├── audio/          # Speech-to-text transcription and audio utilities
@@ -29,7 +31,7 @@ aegisai/
 ├── moderation/     # Text moderation rules, keyword policies, profanity lists
 │
 └──  pipeline/       # Unified streaming pipeline: audio workers, video workers, decision worker
-
+```
 
 
 ---
