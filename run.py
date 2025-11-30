@@ -3,17 +3,18 @@ from src.aegisai.vision.safe_search import analyze_safesearch
 from src.aegisai.vision.label_detection import analyze_labels
 from src.aegisai.vision.vision_rules import classify_labels, classify_safesearch
 from src.aegisai.moderation.text_rules import analyze_transcript
+from src.aegisai.pipeline.streaming import process_file_audio_only
 
-# ---------- TEST AUDIO ----------
-print("TESTING AUDIO...")
-text = transcribe_audio("data/samples/test.wav")
-print("Transcription:", text)
+# # ---------- TEST AUDIO ----------
+# print("TESTING AUDIO...")
+# text = transcribe_audio("data/samples/test.wav")
+# print("Transcription:", text)
 
 
-# ---------- TEST TEXT MODERATION RULES ----------
-print("TESTING TEXT MODERATION RULES...")
-text_evaluation = analyze_transcript(text)
-print("Text Evaluation:", text_evaluation)
+# # ---------- TEST TEXT MODERATION RULES ----------
+# print("TESTING TEXT MODERATION RULES...")
+# text_evaluation = analyze_transcript(text)
+# print("Text Evaluation:", text_evaluation)
 
 
 # # ---------- TEST IMAGE SAFE_SEARCH ----------
@@ -33,7 +34,11 @@ print("Text Evaluation:", text_evaluation)
 # print("Safe Search Evaluation:", safe_search_evaluation)
 # print("Vision Evaluation:", vision_evaluation)
 
-
+process_file_audio_only(
+    "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4",   # <- change to your real path
+    chunk_seconds=5,
+    text_window_seconds=30,
+)
 
 
 

@@ -5,7 +5,7 @@ Text moderation rules: bad words / profanity detection.
 from dataclasses import dataclass
 from typing import List
 from .bad_words_list import BAD_WORDS  
-
+import re
 
 @dataclass
 class TextModerationResult:
@@ -38,7 +38,14 @@ def analyze_text(text: str) -> TextModerationResult:
     Analyze a single text string (e.g. one chunk of transcript).
     """
     lowered = text.lower()
-    found = [w for w in BAD_WORDS if w in lowered]
+    lowered = re.sub(r"[^a-z0-9]+", " ", lowered)
+
+    found = []
+    for w in BAD_WORDS:
+        pattern = r"\b" + re.escape(w) + r"\b"  # whole-word match
+        if re.search(pattern, lowered):
+            found.append(w)
+
     count = len(found)
     severity = _compute_severity(count)
 

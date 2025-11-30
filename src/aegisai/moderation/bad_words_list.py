@@ -1,4 +1,5 @@
 BAD_WORDS = {
+    "today", "english", "word", "everybody", "hey",
 
     # Core profanity
     "fuck", "fucking", "motherfucker", "motherfuckers", "mf", "mfing",
