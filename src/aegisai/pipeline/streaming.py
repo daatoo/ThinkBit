@@ -13,15 +13,16 @@ Later we can add a video/vision worker with a similar pattern.
 """
 
 import os
-import glob
 import queue
 import threading
-import subprocess
 import tempfile
 from typing import List
 
 from src.aegisai.audio.speech_to_text import transcribe_audio
 from src.aegisai.moderation.text_rules import analyze_text, TextModerationResult
+from src.aegisai.video.segment import segment_audio_to_wav
+from src.aegisai.video.mute import merge_intervals, mute_intervals_in_video
+
 
 
 # =========================
@@ -217,39 +218,19 @@ def process_file_audio_only(
         daemon=True,
     ).start()
 
+
     # Use a temp directory for chunks so we don't pollute the project folder
     with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
-        out_pattern = os.path.join(tmpdir, "chunk_%05d.wav")
-
-        cmd = [
-            "ffmpeg",
-            "-y",                     # overwrite without asking
-            "-i", video_path,         # input file
-            "-vn",                    # disable video
-            "-ac", "1",               # mono
-            "-ar", "16000",           # 16kHz sample rate (good for STT)
-            "-f", "segment",          # segment into multiple outputs
-            "-segment_time", str(chunk_seconds),
-            "-reset_timestamps", "1",
-            out_pattern,
-        ]
-
         print("[process_file_audio_only] Running ffmpeg segmentation...")
         try:
-            subprocess.run(
-                cmd,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+            chunk_files = segment_audio_to_wav(
+                video_path=video_path,
+                output_dir=tmpdir,
+                chunk_seconds=chunk_seconds,
             )
-        except subprocess.CalledProcessError as e:
-            print(f"[process_file_audio_only] ffmpeg failed: {e}")
+        except Exception as e:
+            print(f"[process_file_audio_only] segmentation failed: {e}")
             return
-
-        # Find all generated chunks
-        chunk_files: List[str] = sorted(
-            glob.glob(os.path.join(tmpdir, "chunk_*.wav"))
-        )
 
         print(f"[process_file_audio_only] Found {len(chunk_files)} chunks")
 
@@ -266,6 +247,7 @@ def process_file_audio_only(
         event_q.put(None)
         event_q.join()
 
+
     print("[process_file_audio_only] Analysis done.")
 
     # If no output path was given, just stop here
@@ -276,55 +258,20 @@ def process_file_audio_only(
     merged = merge_intervals(muted_intervals)
     print(f"[process_file_audio_only] Muted intervals: {merged}")
 
-    if not merged:
-        print("[process_file_audio_only] No bad chunks detected, copying input to output.")
-        # simply copy or re-mux
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", video_path, "-c", "copy", output_video_path],
-            check=True,
+    print("[process_file_audio_only] Running ffmpeg mute/copy...")
+    try:
+        mute_intervals_in_video(
+            video_path=video_path,
+            intervals=merged,
+            output_video_path=output_video_path,
         )
+    except Exception as e:
+        print(f"[process_file_audio_only] Error while muting video: {e}")
         return
-    
-    # Build volume filter string to mute all bad intervals
-    volume_filters = []
-    for start, end in merged:
-        volume_filters.append(
-            f"volume=enable='between(t,{start:.3f},{end:.3f})':volume=0"
-        )
 
-    af_filter = ",".join(volume_filters)
-
-    cmd_mute = [
-        "ffmpeg",
-        "-y",
-        "-i", video_path,
-        "-af", af_filter,
-        "-c:v", "copy",          # don't re-encode video
-        "-c:a", "aac",           # or copy/re-encode as you prefer
-        output_video_path,
-    ]
-
-    print("[process_file_audio_only] Running ffmpeg mute...")
-    subprocess.run(cmd_mute, check=True)
     print("[process_file_audio_only] Muted video written to", output_video_path)
 
 
 
 
-def merge_intervals(intervals: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    if not intervals:
-        return []
 
-    intervals = sorted(intervals, key=lambda x: x[0])
-    merged: list[tuple[float, float]] = []
-    cur_start, cur_end = intervals[0]
-
-    for start, end in intervals[1:]:
-        if start <= cur_end:  # overlapping or touching
-            cur_end = max(cur_end, end)
-        else:
-            merged.append((cur_start, cur_end))
-            cur_start, cur_end = start, end
-
-    merged.append((cur_start, cur_end))
-    return merged
