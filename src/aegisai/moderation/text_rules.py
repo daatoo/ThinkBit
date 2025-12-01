@@ -7,6 +7,9 @@ from typing import List
 from .bad_words_list import BAD_WORDS  
 import re
 
+from .bad_words_list import find_bad_words_in_text
+
+
 @dataclass
 class TextModerationResult:
     original_text: str
@@ -37,15 +40,7 @@ def analyze_text(text: str) -> TextModerationResult:
     """
     Analyze a single text string (e.g. one chunk of transcript).
     """
-    lowered = text.lower()
-    lowered = re.sub(r"[^a-z0-9]+", " ", lowered)
-
-    found = []
-    for w in BAD_WORDS:
-        pattern = r"\b" + re.escape(w) + r"\b"  # whole-word match
-        if re.search(pattern, lowered):
-            found.append(w)
-
+    found = find_bad_words_in_text(text)
     count = len(found)
     severity = _compute_severity(count)
 
@@ -59,6 +54,7 @@ def analyze_text(text: str) -> TextModerationResult:
         severity=severity,
         block=block,
     )
+
 
 
 def analyze_transcript(chunks: List[str]) -> TextModerationResult:

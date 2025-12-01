@@ -22,6 +22,8 @@ from src.aegisai.audio.speech_to_text import transcribe_audio
 from src.aegisai.moderation.text_rules import analyze_text, TextModerationResult
 from src.aegisai.video.segment import segment_audio_to_wav
 from src.aegisai.video.mute import merge_intervals, mute_intervals_in_video
+from src.aegisai.audio.audio_moderation import detect_toxic_segments
+
 
 
 
@@ -95,12 +97,26 @@ def audio_worker(
             audio_q.task_done()
             continue
 
-        # Normalize to a single string
-        if isinstance(raw, list):
-            text = " ".join(str(x) for x in raw)
-        else:
-            text = str(raw)
+        # =========================
+        #  Normalize STT result
+        # =========================
+        transcripts: list[str]
+        words: list[dict]
 
+
+
+        if isinstance(raw, dict):
+            transcripts = raw.get("transcripts", [])
+            words = raw.get("words", [])
+        elif isinstance(raw, list):
+            # backward compatibility: old version returned list of strings
+            transcripts = [str(x) for x in raw]
+            words = []
+        else:
+            transcripts = [str(raw)]
+            words = []
+
+        text = " ".join(transcripts)
         print(f"[audio_worker] Transcript (t={ts:.1f}s): {text[:120]!r}")
 
         if text.strip():
@@ -136,8 +152,33 @@ def audio_worker(
                     "text_window": result.original_text,
                 })
 
-                # Record the interval [ts, ts + chunk_seconds] to mute later
-                muted_intervals.append((ts, ts + chunk_seconds))
+
+
+        # =========================
+        #  Word-level mute intervals
+        # =========================
+        if words:
+            # local segments: relative to this chunk (0..chunk_seconds)
+            local_segments = detect_toxic_segments(words)
+            if local_segments:
+                print(f"[audio_worker] Toxic word segments (local): {local_segments}")
+
+            # Convert to global timeline by adding chunk start time `ts`
+            for start_local, end_local in local_segments:
+                start_global = ts + start_local
+                end_global = ts + end_local
+                muted_intervals.append((start_global, end_global))
+
+        else:
+            # Fallback: if no word timestamps but we decided to block,
+            # mute whole chunk like old behavior.
+            if text.strip():
+                try:
+                    if result.block:
+                        muted_intervals.append((ts, ts + chunk_seconds))
+                except NameError:
+                    # if analyze_text failed entirely
+                    pass
 
         audio_q.task_done()
 

@@ -30,7 +30,7 @@ aegisai/
 │
 ├── moderation/     # Text moderation rules, keyword policies, profanity lists
 │
-└──  pipeline/       # Unified streaming pipeline: audio workers, video workers, decision worker
+└── pipeline/       # Unified streaming pipeline: audio workers, video workers, decision worker
 ```
 
 

@@ -1,5 +1,15 @@
+"""
+Shared profanity list and helpers for text/audio moderation.
+"""
+
+from __future__ import annotations
+
+
+import re
+from typing import Iterable, List
+
 BAD_WORDS = {
-    "today", "english", "word", "everybody", "hey",
+    "today", "english", "word", "everybody", "hey", "speaking",
 
     # Core profanity
     "fuck", "fucking", "motherfucker", "motherfuckers", "mf", "mfing",
@@ -102,3 +112,49 @@ BAD_WORDS = {
     "you disgust me", "pathetic loser", "crazy asshole",
 
 }
+
+
+_WORD_RE = re.compile(r"[^a-z0-9]+")
+
+
+
+def normalize_text_for_matching(text: str) -> str:
+    """
+    Lowercase and replace non [a-z0-9] with spaces.
+    This must stay consistent with normalize_token().
+    """
+    return _WORD_RE.sub(" ", text.lower())
+
+
+
+def normalize_token(token: str) -> str:
+    """
+    Normalize a single token to match BAD_WORDS.
+    """
+    return _WORD_RE.sub("", token.lower())
+
+
+def is_bad_word(token: str, extra_bad: Iterable[str] | None = None) -> bool:
+    """
+    Check if a single token should be considered profanity.
+    Used by audio (word-level) and can be used by text.
+    """
+    bad_set = BAD_WORDS if extra_bad is None else BAD_WORDS | set(extra_bad)
+    norm = normalize_token(token)
+    return norm in bad_set
+
+
+
+def find_bad_words_in_text(text: str) -> List[str]:
+    """
+    Runs the same logic your old `analyze_text` used, but reusable.
+    """
+    lowered = normalize_text_for_matching(text)
+    found: List[str] = []
+
+    for w in BAD_WORDS:
+        pattern = r"\b" + re.escape(w) + r"\b"  # whole-word match
+        if re.search(pattern, lowered):
+            found.append(w)
+
+    return found
