@@ -11,7 +11,11 @@ from src.aegisai.audio.audio_moderation import detect_toxic_segments
 from src.aegisai.moderation.text_rules import analyze_text, TextModerationResult
 from src.aegisai.video.segment import segment_audio_to_wav  # works for any media input
 from src.aegisai.video.mute import merge_intervals
+import queue
+import threading
 
+from src.aegisai.audio.text_buffer import TextBuffer
+from src.aegisai.audio.workers import audio_worker
 
 Interval = Tuple[float, float]
 
@@ -88,6 +92,22 @@ def filter_audio_file(
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
     muted_intervals: List[Interval] = []
+    text_buffer = TextBuffer()             # shared rolling text buffer
+    audio_q: "queue.Queue" = queue.Queue()
+    event_q: "queue.Queue" = queue.Queue()
+
+    num_workers = 4
+
+    # Start audio_worker threads
+    workers: list[threading.Thread] = []
+    for _ in range(num_workers):
+        t = threading.Thread(
+            target=audio_worker,
+            args=(audio_q, event_q, text_buffer, muted_intervals, chunk_seconds),
+            daemon=True,
+        )
+        t.start()
+        workers.append(t)
 
     with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
         print("[filter_audio_file] Running ffmpeg segmentation...")
@@ -101,70 +121,40 @@ def filter_audio_file(
             )
         except Exception as e:
             print(f"[filter_audio_file] Segmentation failed: {e}")
+            for _ in range(num_workers):
+                audio_q.put(None)
+            audio_q.join()
+            for t in workers:
+                t.join()
             return []
 
         print(f"[filter_audio_file] Found {len(chunk_files)} chunks")
 
+                # Enqueue chunks for workers
         for idx, wav_path in enumerate(chunk_files):
             ts = float(idx * chunk_seconds)
             print(
-                f"[filter_audio_file] Processing chunk {idx} "
+                f"[filter_audio_file] Queueing chunk {idx} "
                 f"at t={ts:.1f}s -> {wav_path}"
             )
+            audio_q.put((wav_path, ts))
 
-            try:
-                raw = transcribe_audio(wav_path)
-            except Exception as e:
-                print(f"[filter_audio_file] Error in transcribe_audio({wav_path}): {e}")
-                continue
+        # Send stop signals
+        for _ in range(num_workers):
+            audio_q.put(None)
 
-            # Normalize STT result
-            if isinstance(raw, dict):
-                transcripts = raw.get("transcripts", [])
-                words = raw.get("words", [])
-            elif isinstance(raw, list):
-                transcripts = [str(x) for x in raw]
-                words = []
-            else:
-                transcripts = [str(raw)]
-                words = []
+        # Wait until all items processed
+        audio_q.join()
 
-            text = " ".join(transcripts)
-            print(
-                f"[filter_audio_file] Transcript (t={ts:.1f}s): {text[:120]!r}"
-            )
+    # Join worker threads (clean exit)
+    for t in workers:
+        t.join()
 
-            if text.strip():
-                try:
-                    result: TextModerationResult = analyze_text(text)
-                except Exception as e:
-                    print(f"[filter_audio_file] Error in analyze_text: {e}")
-                    result = TextModerationResult(
-                        original_text=text,
-                        bad_words=[],
-                        count=0,
-                        severity=0,
-                        block=False,
-                    )
-
-                print(
-                    f"[filter_audio_file] Moderation: count={result.count}, "
-                    f"severity={result.severity}, block={result.block}, "
-                    f"bad_words={result.bad_words}"
-                )
-
-            if words:
-                local_segments = detect_toxic_segments(words)
-                if local_segments:
-                    print(
-                        f"[filter_audio_file] Toxic word segments (local): "
-                        f"{local_segments}"
-                    )
-
-                for start_local, end_local in local_segments:
-                    start_global = ts + start_local
-                    end_global = ts + end_local
-                    muted_intervals.append((start_global, end_global))
+    # (Optional) you can drain event_q here if you want to log/use events:
+    # while not event_q.empty():
+    #     evt = event_q.get()
+    #     print("[filter_audio_file] Moderation event:", evt)
+    #     event_q.task_done()
 
     merged = merge_intervals(muted_intervals)
     print(f"[filter_audio_file] Final muted intervals: {merged}")

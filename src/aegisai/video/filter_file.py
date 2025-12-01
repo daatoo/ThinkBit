@@ -37,7 +37,14 @@ def _blur_intervals_in_video(
     enable_exprs = [f"between(t,{s:.3f},{e:.3f})" for (s, e) in intervals]
     enable_all = " + ".join(enable_exprs)  # OR in ffmpeg expression
 
-    vf = f"boxblur=luma_radius=20:luma_power=2:enable='{enable_all}'"
+    #vf = f"boxblur=luma_radius=20:luma_power=2:enable='{enable_all}'"
+    vf = (
+        "[0:v]split=2[main][tmp];"
+        "[tmp]crop=w=iw/2:h=ih/2:x=iw/4:y=ih/4,"
+        "boxblur=luma_radius=20:luma_power=2:enable='{enable}'[blurred];"
+        "[main][blurred]overlay=x=W/4:y=H/4:enable='{enable}'" # add [out]; if you add scale
+        #"[out]scale=-1:720"
+    ).format(enable=enable_all)
 
     cmd = [
         "ffmpeg",
@@ -47,7 +54,9 @@ def _blur_intervals_in_video(
         "-vf",
         vf,
         "-c:a",
-        "copy",  # keep audio untouched
+        "copy",
+        "-preset", "ultrafast",   # or "ultrafast"
+        "-tune", "zerolatency",
         output_video_path,
     ]
     subprocess.run(cmd, check=True)
@@ -78,73 +87,73 @@ def filter_video_file(
     if not os.path.isfile(input_path):
         raise FileNotFoundError(f"Video not found: {input_path}")
 
-    DEBUG_FRAMES_DIR = "/home/david/Desktop/ThinkBit/debug_frames"
-    os.makedirs(DEBUG_FRAMES_DIR, exist_ok=True)
-    tmpdir = DEBUG_FRAMES_DIR
+    from tempfile import TemporaryDirectory
+    with TemporaryDirectory() as temp_dir:
+        tmpdir = temp_dir
 
-    # 1) Sample frames from the video file
-    frames = extract_sampled_frames_from_file(
-        video_path=input_path,
-        output_dir=tmpdir,
-        fps=sample_fps,
-    )
-    print(f"[filter_video_file] Extracted {len(frames)} frames at {sample_fps} FPS")
-
-    if not frames:
-        print("[filter_video_file] No frames extracted, copying video.")
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path, "-c", "copy", output_path],
-            check=True,
+        # 1) Sample frames from the video file
+        frames = extract_sampled_frames_from_file(
+            video_path=input_path,
+            output_dir=tmpdir,
+            fps=sample_fps,
         )
-        return {"intervals": [], "output_path": output_path}
+        print(f"[filter_video_file] Extracted {len(frames)} frames at {sample_fps} FPS")
 
-    # Decide worker count (don’t go crazy by default)
-    if max_workers is None:
-        # up to 8 threads, but not more than number of frames
-        max_workers = min(8, len(frames))
+        if not frames:
+            print("[filter_video_file] No frames extracted, copying video.")
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", input_path, "-c", "copy", output_path],
+                check=True,
+            )
+            return {"intervals": [], "output_path": output_path}
 
-    # 2) Full moderation per frame (IN PARALLEL)
-    print(f"[filter_video_file] Analyzing frames with {max_workers} worker threads...")
+        # Decide worker count (don’t go crazy by default)
+        if max_workers is None:
+            # up to 8 threads, but not more than number of frames
+            max_workers = min(8, len(frames))
 
-    results: List[FrameModerationResult] = []
+        # 2) Full moderation per frame (IN PARALLEL)
+        print(f"[filter_video_file] Analyzing frames with {max_workers} worker threads...")
 
-    def _moderate_one(frame_path: str, ts: float) -> FrameModerationResult:
-        return analyze_frame_moderation(frame_path, timestamp=ts)
+        results: List[FrameModerationResult] = []
 
-    # Submit all tasks first so they run concurrently,
-    # then collect results in the SAME ORDER as frames.
-    from concurrent.futures import ThreadPoolExecutor
+        def _moderate_one(frame_path: str, ts: float) -> FrameModerationResult:
+            return analyze_frame_moderation(frame_path, timestamp=ts)
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_moderate_one, frame_path, ts)
-            for (frame_path, ts) in frames
-        ]
-        # This preserves order: i-th result corresponds to i-th frame
-        for i, fut in enumerate(futures):
-            results.append(fut.result())
+        # Submit all tasks first so they run concurrently,
+        # then collect results in the SAME ORDER as frames.
+        from concurrent.futures import ThreadPoolExecutor
 
-    print(f"[filter_video_file] Got {len(results)} moderation results.")
-    print(results)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(_moderate_one, frame_path, ts)
+                for (frame_path, ts) in frames
+            ]
+            # This preserves order: i-th result corresponds to i-th frame
+            for i, fut in enumerate(futures):
+                results.append(fut.result())
 
-    # 3) Frame decisions -> raw intervals
-    frame_step = 1.0 / sample_fps
-    raw_intervals = intervals_from_frames(results, frame_step=frame_step)
+        print(f"[filter_video_file] Got {len(results)} moderation results.")
+        print(results)
 
-    # 4) Merge intervals
-    merged = merge_intervals(raw_intervals)
+        # 3) Frame decisions -> raw intervals
+        frame_step = 1.0 / sample_fps
+        raw_intervals = intervals_from_frames(results, frame_step=frame_step)
 
-    print("[filter_video_file] Raw unsafe intervals:", raw_intervals)
-    print("[filter_video_file] Merged unsafe intervals:", merged)
+        # 4) Merge intervals
+        merged = merge_intervals(raw_intervals)
 
-    # 5) Apply blur
-    _blur_intervals_in_video(
-        video_path=input_path,
-        intervals=merged,
-        output_video_path=output_path,
-    )
+        print("[filter_video_file] Raw unsafe intervals:", raw_intervals)
+        print("[filter_video_file] Merged unsafe intervals:", merged)
 
-    return {
-        "intervals": merged,
-        "output_path": output_path,
-    }
+        # 5) Apply blur
+        _blur_intervals_in_video(
+            video_path=input_path,
+            intervals=merged,
+            output_video_path=output_path,
+        )
+
+        return {
+            "intervals": merged,
+            "output_path": output_path,
+        }

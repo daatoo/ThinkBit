@@ -87,7 +87,9 @@ class FFmpegFrameExtractor:
         if duration is not None:
             cmd.extend(["-t", f"{duration:.3f}"])
 
-        cmd.extend(["-vf", f"fps={fps:.3f}"])
+        vf_filter = f"fps={fps:.3f},scale=-1:720"   
+
+        cmd.extend(["-vf", vf_filter])
         cmd.extend(
             [
                 "-qscale:v",

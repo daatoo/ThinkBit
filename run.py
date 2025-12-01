@@ -58,13 +58,13 @@ from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_O
 
 
 from src.aegisai.pipeline.runner import run_job
-from src.aegisai.pipeline.use_cases import VIDEO_FILE_VIDEO_ONLY
+from src.aegisai.pipeline.use_cases import VIDEO_FILE_AUDIO_VIDEO
 
-input_video = "/home/david/Desktop/ThinkBit/data/samples/BodyCamTrailerTest.mp4"
-output_video = "/home/david/Desktop/ThinkBit/data/samples/BodyCamTrailerTest_test.mp4"
+input_video = "/home/david/Desktop/ThinkBit/data/samples/both.mp4"
+output_video = "/home/david/Desktop/ThinkBit/data/samples/both_output.mp4"
 
 result = run_job(
-    cfg=VIDEO_FILE_VIDEO_ONLY,
+    cfg=VIDEO_FILE_AUDIO_VIDEO,
     input_path_or_stream=input_video,
     output_path=output_video,
 )
