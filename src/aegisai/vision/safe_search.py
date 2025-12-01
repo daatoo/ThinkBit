@@ -43,3 +43,38 @@ def analyze_safesearch(image_path: str, key_path: str = "secrets/aegis-key.json"
         medical=Likelihood(safe.medical),
         spoof=Likelihood(safe.spoof),
     )
+
+
+from src.aegisai.vision.label_detection import analyze_labels
+from src.aegisai.vision.vision_rules import (
+    classify_safesearch,
+    classify_labels,
+    combine_frame_decision,
+    FrameModerationResult,
+)
+
+
+def analyze_frame_moderation(
+    image_path: str,
+    timestamp: float,
+    key_path: str = "secrets/aegis-key.json",
+) -> FrameModerationResult:
+    """
+    Full per-frame moderation:
+      - SafeSearch
+      - label detection
+      - classification + final block decision
+    """
+    # 1) SafeSearch
+    ss_result = analyze_safesearch(image_path, key_path=key_path)
+    ss_info = classify_safesearch(ss_result)
+    #print(f"[analyze_frame_moderation] SafeSearch info: {ss_info} for {image_path}")
+
+    # 2) Labels (violence etc.)
+    labels = analyze_labels(image_path, key_path=key_path)
+    labels_info = classify_labels(labels)
+    #print(f"Labels: {labels}")
+    #print(f"[analyze_frame_moderation] Labels info: {labels_info} for {image_path}")
+
+    # 3) Combine into one frame-level decision
+    return combine_frame_decision(timestamp, ss_info, labels_info)

@@ -44,13 +44,29 @@ from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_O
 #     output_video_path="/home/david/Desktop/ThinkBit/data/samples/test_video_output.mp4",
 # )
 
-input_audio = "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4"          # your input audio file
-output_audio = "/home/david/Desktop/ThinkBit/data/samples/test_video_output.mp4"  # where to save filtered result
+# input_audio = "/home/david/Desktop/ThinkBit/data/samples/test_video.mp4"          # your input audio file
+# output_audio = "/home/david/Desktop/ThinkBit/data/samples/test_video_output.mp4"  # where to save filtered result
+
+# result = run_job(
+#     cfg=VIDEO_FILE_AUDIO_ONLY,
+#     input_path_or_stream=input_audio,
+#     output_path=output_audio
+# )
+
+# print("Job completed.")
+# print(result)
+
+
+from src.aegisai.pipeline.runner import run_job
+from src.aegisai.pipeline.use_cases import VIDEO_FILE_VIDEO_ONLY
+
+input_video = "/home/david/Desktop/ThinkBit/data/samples/BodyCamTrailerTest.mp4"
+output_video = "/home/david/Desktop/ThinkBit/data/samples/BodyCamTrailerTest_test.mp4"
 
 result = run_job(
-    cfg=VIDEO_FILE_AUDIO_ONLY,
-    input_path_or_stream=input_audio,
-    output_path=output_audio
+    cfg=VIDEO_FILE_VIDEO_ONLY,
+    input_path_or_stream=input_video,
+    output_path=output_video,
 )
 
 print("Job completed.")

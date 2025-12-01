@@ -5,6 +5,10 @@ Frame sampling utilities for controlling extraction rate.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Tuple
+
+from src.aegisai.video.ffmpeg_extractor import FFmpegFrameExtractor
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,37 @@ class FrameSampler:
         if frame_index < 0:
             raise ValueError("frame_index must be non-negative.")
         return frame_index % plan.stride == 0
+    
+
+FrameInfo = Tuple[str, float]  # (frame_path, timestamp_seconds)
+
+
+def extract_sampled_frames_from_file(
+    video_path: str | Path,
+    output_dir: str | Path,
+    fps: float = 1.0,
+) -> List[FrameInfo]:
+    """
+    Use FFmpegFrameExtractor to sample frames from a video file and
+    attach approximate timestamps.
+
+    Returns:
+        List of (frame_path, timestamp_seconds), where timestamp is
+        index / fps (0/fps, 1/fps, 2/fps, ...).
+    """
+    extractor = FFmpegFrameExtractor()
+    result = extractor.extract_frames(
+        video_path=video_path,
+        output_dir=output_dir,
+        fps=fps,
+    )
+
+    frames: List[FrameInfo] = []
+    for idx, path in enumerate(result.output_paths):
+        ts = idx / result.fps  # seconds
+        frames.append((str(path), float(ts)))
+
+    return frames
 
 
 
