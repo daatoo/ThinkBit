@@ -34,8 +34,8 @@ AI is used to achieve the efficiency, speed, and customization that manual censo
 See [`docs/setup.md`](./docs/setup.md)
 
 ## Frontend
-https://github.com/NW0RK/safestream-ui
-https://prototype-aegis-ai.lovable.app
+- https://github.com/NW0RK/safestream-ui
+- https://prototype-aegis-ai.lovable.app
 ## Marketing
 
 <img width="320px" alt="AEGIS st george" src="https://github.com/user-attachments/assets/138c781f-cd42-41ee-8634-bd18bd0f5aab" />
