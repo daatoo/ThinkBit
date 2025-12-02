@@ -146,14 +146,11 @@ def filter_video_file(
         print("[filter_video_file] Raw unsafe intervals:", raw_intervals)
         print("[filter_video_file] Merged unsafe intervals:", merged)
 
-        # 5) Apply blur
-        _blur_intervals_in_video(
-            video_path=input_path,
-            intervals=merged,
-            output_video_path=output_path,
-        )
+        # # 5) Apply blur
+        # _blur_intervals_in_video(
+        #     video_path=input_path,
+        #     intervals=merged,
+        #     output_video_path=output_path,
+        # )
 
-        return {
-            "intervals": merged,
-            "output_path": output_path,
-        }
+        return merged

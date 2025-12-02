@@ -12,7 +12,8 @@ from src.aegisai.video.filter_file import filter_video_file
 from src.aegisai.audio.filter_stream import filter_audio_stream
 from src.aegisai.video.filter_stream import filter_video_stream
 from src.aegisai.video.mute import mute_intervals_in_video
-
+import concurrent.futures
+from typing import List, Tuple
 
 def run_job(
     cfg: PipelineConfig,
@@ -124,30 +125,54 @@ def _run_file_job(
     # 5) Video file -> filtered video and audio
     if cfg.filter_audio and cfg.filter_video:
         with tempfile.TemporaryDirectory(prefix="aegis_video_both_") as tmpdir:
-            # Step 1: filter audio with same approach as above
-            tmp_audio = os.path.join(tmpdir, "extracted_audio.wav")
-            _extract_audio_track(input_path, tmp_audio)
 
-            audio_intervals = filter_audio_file(
-                audio_path=tmp_audio,
-                output_audio_path=None,
-                chunk_seconds=5,
-            )
+            def audio_job():
+                # 1) Extract audio to temp WAV
+                tmp_audio = os.path.join(tmpdir, "extracted_audio.wav")
+                _extract_audio_track(input_path, tmp_audio)
 
-            # Apply audio mutes to a temp intermediate video
-            tmp_video = os.path.join(tmpdir, "audio_filtered_video.mp4")
-            mute_intervals_in_video(
+                # 2) Run audio moderation, return intervals
+                return filter_audio_file(
+                    audio_path=tmp_audio,
+                    output_audio_path=None,
+                    chunk_seconds=5,
+                )
+
+            def video_job():
+                """
+                Run video moderation, return blur intervals.
+                Assumes filter_video_file returns either:
+                  - dict with 'intervals' key, or
+                  - directly a list of intervals.
+                Also assumes we can pass output_path=None to do analysis-only.
+                """
+                video_result = filter_video_file(input_path, output_path=None)
+
+                if isinstance(video_result, dict) and "intervals" in video_result:
+                    return video_result["intervals"]
+
+                # fallback if it's already a list
+                return video_result
+
+            # Run audio + video analysis in parallel
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                audio_future = executor.submit(audio_job)
+                video_future = executor.submit(video_job)
+
+                audio_intervals = audio_future.result()
+                video_intervals = video_future.result()
+
+            # Single ffmpeg: blur + mute together
+            blur_and_mute_intervals_in_video(
                 video_path=input_path,
-                intervals=audio_intervals,
-                output_video_path=tmp_video,
+                blur_intervals=video_intervals,
+                mute_intervals=audio_intervals,
+                output_video_path=output_path,
             )
-
-            # Step 2: run video filter on that intermediate video
-            video_info = filter_video_file(tmp_video, output_path=output_path)
 
         return {
             "audio_intervals": audio_intervals,
-            "video_intervals": video_info.get("intervals", []),
+            "video_intervals": video_intervals,
             "output_path": output_path,
         }
 
@@ -159,3 +184,85 @@ def _run_stream_job(
     input_stream: Any,
 ) -> Any:
     return True
+
+
+def blur_and_mute_intervals_in_video(
+    video_path: str,
+    blur_intervals,
+    mute_intervals,
+    output_video_path: str,
+) -> None:
+    """
+    Apply center blur on `blur_intervals` and mute audio on `mute_intervals`
+    in a single ffmpeg run.
+
+    - If both lists are empty: just copy.
+    - If only blur_intervals: blur video, copy audio.
+    - If only mute_intervals: mute audio, copy video.
+    - If both: blur + mute together.
+    """
+
+    # If nothing to do, just remux
+    if not blur_intervals and not mute_intervals:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", video_path, "-c", "copy", output_video_path],
+            check=True,
+        )
+        return
+
+    cmd = ["ffmpeg", "-y", "-i", video_path]
+
+    # ======================
+    # Video filter (blur)
+    # ======================
+    if blur_intervals:
+        blur_enable_exprs = [
+            f"between(t,{s:.3f},{e:.3f})" for (s, e) in blur_intervals
+        ]
+        blur_enable_all = " + ".join(blur_enable_exprs)  # OR between intervals
+
+        vf = (
+            "[0:v]split=2[main][tmp];"
+            "[tmp]crop=w=iw/2:h=ih/2:x=iw/4:y=ih/4,"
+            "boxblur=luma_radius=20:luma_power=2:enable='{enable}'[blurred];"
+            "[main][blurred]overlay=x=W/4:y=H/4:enable='{enable}'"
+        ).format(enable=blur_enable_all)
+
+        cmd += ["-vf", vf]
+    # if no blur_intervals: we won't set -vf and can copy video
+
+    # ======================
+    # Audio filter (mute)
+    # ======================
+    if mute_intervals:
+        volume_filters = []
+        for start, end in mute_intervals:
+            volume_filters.append(
+                f"volume=enable='between(t,{start:.3f},{end:.3f})':volume=0"
+            )
+        af_filter = ",".join(volume_filters)
+        cmd += ["-af", af_filter]
+    # if no mute_intervals: we won't set -af and can copy audio
+
+    # ======================
+    # Codec settings
+    # ======================
+    # If we used a video filter, we must re-encode video.
+    if blur_intervals:
+        cmd += [
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-tune", "zerolatency",
+        ]
+    else:
+        cmd += ["-c:v", "copy"]
+
+    # If we used an audio filter, we must (re)encode audio.
+    if mute_intervals:
+        cmd += ["-c:a", "aac"]
+    else:
+        cmd += ["-c:a", "copy"]
+
+    cmd.append(output_video_path)
+
+    subprocess.run(cmd, check=True)
