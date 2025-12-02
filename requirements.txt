@@ -7,7 +7,6 @@ Pillow==11.1.0
 google-cloud-vision==3.7.2
 google-cloud-speech>=2.26.0
 pydub
-audioop-lts
 ffmpeg-python
 sqlalchemy>=2.0.0
 python-multipart>=0.0.9
