@@ -153,4 +153,4 @@ def filter_video_file(
         #     output_video_path=output_path,
         # )
 
-        return merged
+        return {"intervals": merged}
