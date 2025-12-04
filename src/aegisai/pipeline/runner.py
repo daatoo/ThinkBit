@@ -1,20 +1,29 @@
 # src/aegisai/pipeline/runner.py
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import subprocess
 import tempfile
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from src.aegisai.pipeline.config import PipelineConfig
 from src.aegisai.audio.filter_file import filter_audio_file
-from src.aegisai.video.filter_file import filter_video_file
 from src.aegisai.audio.filter_stream import filter_audio_stream
+from src.aegisai.pipeline.config import PipelineConfig
+from src.aegisai.video.filter_file import (
+    build_region_blur_filter,
+    filter_video_file,
+)
 from src.aegisai.video.filter_stream import filter_video_stream
+<<<<<<< Updated upstream
 from src.aegisai.video.ffmpeg_edit import mute_intervals_in_video, blur_and_mute_intervals_in_video, blur_intervals_in_video
 import concurrent.futures
 from src.aegisai.video.segment import extract_audio_track
 from typing import List, Tuple
+=======
+from src.aegisai.video.mute import mute_intervals_in_video
+from src.aegisai.vision.vision_rules import RegionBox
+>>>>>>> Stashed changes
 
 def run_job(
     cfg: PipelineConfig,
@@ -124,19 +133,32 @@ def _run_file_job(
 
             def video_job():
                 """
-                Run video moderation, return blur intervals.
-                Assumes filter_video_file returns either:
-                  - dict with 'intervals' key, or
-                  - directly a list of intervals.
+                Run video moderation, return blur intervals and targeted regions.
                 Also assumes we can pass output_path=None to do analysis-only.
                 """
                 video_result = filter_video_file(input_path, output_path=None)
-
-                if isinstance(video_result, dict) and "intervals" in video_result:
-                    return video_result["intervals"]
-
-                # fallback if it's already a list
-                return video_result
+                if isinstance(video_result, dict):
+                    return video_result
+                if isinstance(video_result, list):
+                    return {
+                        "intervals": video_result,
+                        "blur_regions": [
+                            {
+                                "start": start,
+                                "end": end,
+                                "box": RegionBox(
+                                    label="full_frame",
+                                    score=1.0,
+                                    xmin=0.0,
+                                    ymin=0.0,
+                                    xmax=1.0,
+                                    ymax=1.0,
+                                ),
+                            }
+                            for start, end in video_result
+                        ],
+                    }
+                return {"intervals": [], "blur_regions": []}
 
             # Run audio + video analysis in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -144,12 +166,14 @@ def _run_file_job(
                 video_future = executor.submit(video_job)
 
                 audio_intervals = audio_future.result()
-                video_intervals = video_future.result()
+                video_info = video_future.result() or {}
+                video_intervals = video_info.get("intervals", [])
+                video_blur_regions = video_info.get("blur_regions", [])
 
             # Single ffmpeg: blur + mute together
             blur_and_mute_intervals_in_video(
                 video_path=input_path,
-                blur_intervals=video_intervals,
+                blur_intervals=video_blur_regions or video_intervals,
                 mute_intervals=audio_intervals,
                 output_video_path=output_path,
             )
@@ -157,6 +181,7 @@ def _run_file_job(
         return {
             "audio_intervals": audio_intervals,
             "video_intervals": video_intervals,
+            "video_blur_regions": video_blur_regions,
             "output_path": output_path,
         }
 
@@ -170,6 +195,63 @@ def _run_stream_job(
     return True
 
 
+def _as_region_box(box_data: Any) -> RegionBox:
+    if isinstance(box_data, RegionBox):
+        return box_data
+    if isinstance(box_data, dict):
+        return RegionBox(
+            label=box_data.get("label", "full_frame"),
+            score=float(box_data.get("score", 1.0)),
+            xmin=float(box_data.get("xmin", 0.0)),
+            ymin=float(box_data.get("ymin", 0.0)),
+            xmax=float(box_data.get("xmax", 1.0)),
+            ymax=float(box_data.get("ymax", 1.0)),
+        )
+    raise ValueError("Unsupported box data supplied for blur region.")
+
+
+def _normalize_blur_regions(blur_entries) -> List[Dict[str, Any]]:
+    if not blur_entries:
+        return []
+
+    normalized: List[Dict[str, Any]] = []
+    for entry in blur_entries:
+        if isinstance(entry, dict) and "box" in entry:
+            start = float(entry.get("start", 0.0))
+            end = float(entry.get("end", start))
+            if end <= start:
+                continue
+            try:
+                box = _as_region_box(entry["box"])
+            except ValueError:
+                continue
+            normalized.append({"start": start, "end": end, "box": box})
+            continue
+
+        if isinstance(entry, (list, tuple)) and len(entry) == 2:
+            start, end = entry
+            start_f = float(start)
+            end_f = float(end)
+            if end_f <= start_f:
+                continue
+            normalized.append(
+                {
+                    "start": start_f,
+                    "end": end_f,
+                    "box": RegionBox(
+                        label="full_frame",
+                        score=1.0,
+                        xmin=0.0,
+                        ymin=0.0,
+                        xmax=1.0,
+                        ymax=1.0,
+                    ),
+                }
+            )
+
+    return normalized
+
+
 def blur_and_mute_intervals_in_video(
     video_path: str,
     blur_intervals,
@@ -177,17 +259,20 @@ def blur_and_mute_intervals_in_video(
     output_video_path: str,
 ) -> None:
     """
-    Apply center blur on `blur_intervals` and mute audio on `mute_intervals`
-    in a single ffmpeg run.
+    Apply region-aware blur (boxes produced by vision) alongside optional
+    audio muting in a single ffmpeg run.
 
     - If both lists are empty: just copy.
-    - If only blur_intervals: blur video, copy audio.
-    - If only mute_intervals: mute audio, copy video.
-    - If both: blur + mute together.
+    - If only blur entries exist: blur video, copy audio.
+    - If only mute_intervals exist: mute audio, copy video.
+    - If both exist: blur + mute together.
     """
 
+    blur_regions = _normalize_blur_regions(blur_intervals)
+    safe_mute_intervals = mute_intervals or []
+
     # If nothing to do, just remux
-    if not blur_intervals and not mute_intervals:
+    if not blur_regions and not safe_mute_intervals:
         subprocess.run(
             ["ffmpeg", "-y", "-i", video_path, "-c", "copy", output_video_path],
             check=True,
@@ -197,30 +282,29 @@ def blur_and_mute_intervals_in_video(
     cmd = ["ffmpeg", "-y", "-i", video_path]
 
     # ======================
-    # Video filter (blur)
+    # Video filter (targeted blur)
     # ======================
-    if blur_intervals:
-        blur_enable_exprs = [
-            f"between(t,{s:.3f},{e:.3f})" for (s, e) in blur_intervals
-        ]
-        blur_enable_all = " + ".join(blur_enable_exprs)  # OR between intervals
+    video_filter = None
+    if blur_regions:
+        video_filter = build_region_blur_filter(blur_regions)
+        if video_filter:
+            cmd += ["-vf", video_filter]
+        else:
+            blur_regions = []
 
-        vf = (
-            "[0:v]split=2[main][tmp];"
-            "[tmp]crop=w=iw/2:h=ih/2:x=iw/4:y=ih/4,"
-            "boxblur=luma_radius=20:luma_power=2:enable='{enable}'[blurred];"
-            "[main][blurred]overlay=x=W/4:y=H/4:enable='{enable}'"
-        ).format(enable=blur_enable_all)
-
-        cmd += ["-vf", vf]
-    # if no blur_intervals: we won't set -vf and can copy video
+    if not video_filter and not safe_mute_intervals:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", video_path, "-c", "copy", output_video_path],
+            check=True,
+        )
+        return
 
     # ======================
     # Audio filter (mute)
     # ======================
-    if mute_intervals:
+    if safe_mute_intervals:
         volume_filters = []
-        for start, end in mute_intervals:
+        for start, end in safe_mute_intervals:
             volume_filters.append(
                 f"volume=enable='between(t,{start:.3f},{end:.3f})':volume=0"
             )
@@ -232,7 +316,7 @@ def blur_and_mute_intervals_in_video(
     # Codec settings
     # ======================
     # If we used a video filter, we must re-encode video.
-    if blur_intervals:
+    if video_filter:
         cmd += [
             "-c:v", "libx264",
             "-preset", "ultrafast",
@@ -242,7 +326,7 @@ def blur_and_mute_intervals_in_video(
         cmd += ["-c:v", "copy"]
 
     # If we used an audio filter, we must (re)encode audio.
-    if mute_intervals:
+    if safe_mute_intervals:
         cmd += ["-c:a", "aac"]
     else:
         cmd += ["-c:a", "copy"]
