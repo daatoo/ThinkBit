@@ -1,5 +1,7 @@
 from typing import List, Dict, Tuple
 from src.aegisai.moderation.bad_words_list import is_bad_word
+Interval = Tuple[float, float]
+
 
 def detect_toxic_segments(
     words: List[Dict],
@@ -35,3 +37,26 @@ def detect_toxic_segments(
         segments.append((current_start, current_end))
 
     return segments
+
+
+
+def merge_intervals(intervals: List[Interval]) -> List[Interval]:
+    """
+    Merge overlapping or adjacent [start, end] intervals.
+    """
+    if not intervals:
+        return []
+
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged: List[Interval] = []
+    cur_start, cur_end = intervals[0]
+
+    for start, end in intervals[1:]:
+        if start <= cur_end:  # overlapping or touching
+            cur_end = max(cur_end, end)
+        else:
+            merged.append((cur_start, cur_end))
+            cur_start, cur_end = start, end
+
+    merged.append((cur_start, cur_end))
+    return merged

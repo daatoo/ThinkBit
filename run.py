@@ -6,7 +6,7 @@ from src.aegisai.moderation.text_rules import analyze_transcript
 from src.aegisai.pipeline.streaming import process_file_audio_only
 
 from src.aegisai.pipeline.runner import run_job
-from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_ONLY
+from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_ONLY, VIDEO_FILE_VIDEO_ONLY, VIDEO_FILE_AUDIO_VIDEO
 
 # # ---------- TEST AUDIO ----------
 # print("TESTING AUDIO...")

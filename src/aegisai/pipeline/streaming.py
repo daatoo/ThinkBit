@@ -21,7 +21,8 @@ from typing import List
 from src.aegisai.audio.text_buffer import TextBuffer
 from src.aegisai.audio.workers import audio_worker
 from src.aegisai.video.segment import extract_audio_chunks_from_video
-from src.aegisai.video.mute_video import merge_intervals, mute_intervals_in_video
+from src.aegisai.audio.intervals import merge_intervals
+from src.aegisai.video.ffmpeg_edit import mute_intervals_in_video
 
 
 

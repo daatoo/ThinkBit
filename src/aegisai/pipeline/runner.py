@@ -11,7 +11,7 @@ from src.aegisai.audio.filter_file import filter_audio_file
 from src.aegisai.video.filter_file import filter_video_file
 from src.aegisai.audio.filter_stream import filter_audio_stream
 from src.aegisai.video.filter_stream import filter_video_stream
-from src.aegisai.video.mute_video import mute_intervals_in_video
+from src.aegisai.video.ffmpeg_edit import mute_intervals_in_video, blur_and_mute_intervals_in_video, blur_intervals_in_video
 import concurrent.futures
 from src.aegisai.video.segment import extract_audio_track
 from typing import List, Tuple
@@ -82,7 +82,7 @@ def _run_file_job(
         # 3) Apply mute intervals directly to the original video
         mute_intervals_in_video(
             video_path=input_path,
-            intervals=audio_intervals,
+            mute_intervals=audio_intervals,
             output_video_path=output_path,
         )
 
@@ -95,6 +95,11 @@ def _run_file_job(
     # 4) Video file -> filtered video, same audio
     if cfg.filter_video and not cfg.filter_audio:
         video_info = filter_video_file(input_path, output_path=output_path)
+        blur_intervals_in_video(
+            video_path=input_path,
+            blur_intervals=video_info.get("intervals", []), 
+            output_video_path=output_path
+        )
         return {
             "audio_intervals": None,
             "video_intervals": video_info.get("intervals", []),

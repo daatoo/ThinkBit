@@ -10,7 +10,7 @@ from src.aegisai.audio.speech_to_text import transcribe_audio
 from src.aegisai.audio.intervals import detect_toxic_segments
 from src.aegisai.moderation.text_rules import analyze_text, TextModerationResult
 from src.aegisai.video.segment import extract_audio_chunks_from_video  # works for any media input
-from src.aegisai.video.mute_video import merge_intervals
+from src.aegisai.audio.intervals import merge_intervals
 import queue
 import threading
 
