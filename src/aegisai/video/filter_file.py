@@ -110,7 +110,7 @@ def filter_video_file(
         # Decide worker count (don’t go crazy by default)
         if max_workers is None:
             # up to 8 threads, but not more than number of frames
-            max_workers = min(8, len(frames))
+            max_workers = min(20, len(frames))
 
         # 2) Full moderation per frame (IN PARALLEL)
         print(f"[filter_video_file] Analyzing frames with {max_workers} worker threads...")

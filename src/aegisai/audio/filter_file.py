@@ -96,7 +96,7 @@ def filter_audio_file(
     audio_q: "queue.Queue" = queue.Queue()
     event_q: "queue.Queue" = queue.Queue()
 
-    num_workers = 4
+    num_workers = 12
 
     # Start audio_worker threads
     workers: list[threading.Thread] = []
