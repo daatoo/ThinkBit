@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.aegisai.video.frame_sampler import extract_sampled_frames_from_file
 from src.aegisai.vision.safe_search import analyze_frame_moderation
 from src.aegisai.vision.vision_rules import intervals_from_frames, FrameModerationResult
-from src.aegisai.video.mute import merge_intervals
+from src.aegisai.video.mute_video import merge_intervals
 
 
 Interval = Tuple[float, float]

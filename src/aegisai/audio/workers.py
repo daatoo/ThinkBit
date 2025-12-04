@@ -2,7 +2,7 @@ import queue
 from typing import List
 
 from src.aegisai.audio.speech_to_text import transcribe_audio
-from src.aegisai.audio.audio_moderation import detect_toxic_segments
+from src.aegisai.audio.intervals import detect_toxic_segments
 from src.aegisai.audio.text_buffer import TextBuffer
 from src.aegisai.moderation.text_rules import analyze_text, TextModerationResult
 

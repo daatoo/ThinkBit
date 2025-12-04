@@ -1,4 +1,4 @@
-from src.aegisai.audio.speech_to_text import transcribe_audio, convert_mp3_to_wav
+from src.aegisai.audio.speech_to_text import transcribe_audio
 from src.aegisai.vision.safe_search import analyze_safesearch
 from src.aegisai.vision.label_detection import analyze_labels
 from src.aegisai.vision.vision_rules import classify_labels, classify_safesearch

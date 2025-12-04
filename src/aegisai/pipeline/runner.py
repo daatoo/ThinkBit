@@ -11,8 +11,9 @@ from src.aegisai.audio.filter_file import filter_audio_file
 from src.aegisai.video.filter_file import filter_video_file
 from src.aegisai.audio.filter_stream import filter_audio_stream
 from src.aegisai.video.filter_stream import filter_video_stream
-from src.aegisai.video.mute import mute_intervals_in_video
+from src.aegisai.video.mute_video import mute_intervals_in_video
 import concurrent.futures
+from src.aegisai.video.segment import extract_audio_track
 from typing import List, Tuple
 
 def run_job(
@@ -32,28 +33,6 @@ def run_job(
     return _run_stream_job(cfg, input_path_or_stream)
 
 
-def _extract_audio_track(video_path: str, audio_out_path: str) -> None:
-    """
-    Extract audio track from a video file into a standalone audio file.
-
-    For STT it's usually convenient to:
-    - force mono
-    - force 16kHz sample rate
-    - use a wav container
-
-    You can tweak this later if needed.
-    """
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        video_path,
-        "-vn",          # no video
-        "-ac", "1",     # mono
-        "-ar", "16000", # 16 kHz
-        audio_out_path,
-    ]
-    subprocess.run(cmd, check=True)
 
 
 def _run_file_job(
@@ -91,7 +70,7 @@ def _run_file_job(
             tmp_audio = os.path.join(tmpdir, "extracted_audio.wav")
 
             # 1) Extract audio track from video
-            _extract_audio_track(input_path, tmp_audio)
+            extract_audio_track(input_path, tmp_audio)
 
             # 2) Run audio moderation on extracted audio (no separate audio output)
             audio_intervals = filter_audio_file(
@@ -129,7 +108,7 @@ def _run_file_job(
             def audio_job():
                 # 1) Extract audio to temp WAV
                 tmp_audio = os.path.join(tmpdir, "extracted_audio.wav")
-                _extract_audio_track(input_path, tmp_audio)
+                extract_audio_track(input_path, tmp_audio)
 
                 # 2) Run audio moderation, return intervals
                 return filter_audio_file(

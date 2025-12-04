@@ -4,7 +4,7 @@ import subprocess
 from typing import List
 
 
-def segment_audio_to_wav(
+def extract_audio_chunks_from_video(
     video_path: str,
     output_dir: str,
     chunk_seconds: int,
@@ -50,3 +50,28 @@ def segment_audio_to_wav(
     chunk_files: List[str] = sorted(glob.glob(pattern))
 
     return chunk_files
+
+
+
+def extract_audio_track(video_path: str, audio_out_path: str) -> None:
+    """
+    Extract audio track from a video file into a standalone audio file.
+
+    For STT it's usually convenient to:
+    - force mono
+    - force 16kHz sample rate
+    - use a wav container
+
+    You can tweak this later if needed.
+    """
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        video_path,
+        "-vn",          # no video
+        "-ac", "1",     # mono
+        "-ar", "16000", # 16 kHz
+        audio_out_path,
+    ]
+    subprocess.run(cmd, check=True)

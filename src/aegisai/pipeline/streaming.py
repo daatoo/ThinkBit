@@ -20,8 +20,8 @@ from typing import List
 
 from src.aegisai.audio.text_buffer import TextBuffer
 from src.aegisai.audio.workers import audio_worker
-from src.aegisai.video.segment import segment_audio_to_wav
-from src.aegisai.video.mute import merge_intervals, mute_intervals_in_video
+from src.aegisai.video.segment import extract_audio_chunks_from_video
+from src.aegisai.video.mute_video import merge_intervals, mute_intervals_in_video
 
 
 
@@ -108,7 +108,7 @@ def process_file_audio_only(
     with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
         print("[process_file_audio_only] Running ffmpeg segmentation...")
         try:
-            chunk_files = segment_audio_to_wav(
+            chunk_files = extract_audio_chunks_from_video(
                 video_path=video_path,
                 output_dir=tmpdir,
                 chunk_seconds=chunk_seconds,

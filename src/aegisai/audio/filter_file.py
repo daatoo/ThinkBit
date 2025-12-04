@@ -7,10 +7,10 @@ import tempfile
 from typing import List, Tuple
 
 from src.aegisai.audio.speech_to_text import transcribe_audio
-from src.aegisai.audio.audio_moderation import detect_toxic_segments
+from src.aegisai.audio.intervals import detect_toxic_segments
 from src.aegisai.moderation.text_rules import analyze_text, TextModerationResult
-from src.aegisai.video.segment import segment_audio_to_wav  # works for any media input
-from src.aegisai.video.mute import merge_intervals
+from src.aegisai.video.segment import extract_audio_chunks_from_video  # works for any media input
+from src.aegisai.video.mute_video import merge_intervals
 import queue
 import threading
 
@@ -114,7 +114,7 @@ def filter_audio_file(
         try:
             # This function name says 'video_path' but it just means "ffmpeg input path".
             # It's safe to use it for audio-only files as well.
-            chunk_files = segment_audio_to_wav(
+            chunk_files = extract_audio_chunks_from_video(
                 video_path=audio_path,
                 output_dir=tmpdir,
                 chunk_seconds=chunk_seconds,
