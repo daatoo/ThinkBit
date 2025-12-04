@@ -1,3 +1,6 @@
+from dataclasses import dataclass, field
+from typing import List, Tuple
+
 from .label_lists import VIOLENCE_LABELS
 from .safe_search import Likelihood
 
@@ -48,8 +51,35 @@ def classify_labels(labels, threshold=0.60):
     }
 
 
-from dataclasses import dataclass
-from typing import List, Tuple
+@dataclass
+class RegionBox:
+    """
+    Normalized bounding box describing an offending region.
+    """
+
+    label: str
+    score: float
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+
+    def width(self) -> float:
+        return max(0.0, self.xmax - self.xmin)
+
+    def height(self) -> float:
+        return max(0.0, self.ymax - self.ymin)
+
+    def to_dict(self) -> dict:
+        return {
+            "label": self.label,
+            "score": self.score,
+            "xmin": self.xmin,
+            "ymin": self.ymin,
+            "xmax": self.xmax,
+            "ymax": self.ymax,
+        }
+
 
 @dataclass
 class FrameModerationResult:
@@ -60,12 +90,14 @@ class FrameModerationResult:
     safesearch: dict      # output of classify_safesearch()
     labels: dict          # output of classify_labels()
     block: bool           # final per-frame decision: True => unsafe
+    regions: List[RegionBox] = field(default_factory=list)
 
 
 def combine_frame_decision(
     timestamp: float,
     safesearch_info: dict,
     labels_info: dict,
+    regions: List[RegionBox] | None = None,
 ) -> FrameModerationResult:
     """
     Combine SafeSearch + violence labels into one per-frame decision.
@@ -84,6 +116,7 @@ def combine_frame_decision(
         safesearch=safesearch_info,
         labels=labels_info,
         block=block,
+        regions=regions or [],
     )
 
 
