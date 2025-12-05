@@ -9,7 +9,7 @@ import re
 from typing import Iterable, List
 
 BAD_WORDS = {
-    "today", "english", "word", "everybody", "hey", "speaking",
+    "today", "english", "word", "everybody", "hey", "speaking", "you",
 
     # Core profanity
     "fuck", "fucking", "motherfucker", "motherfuckers", "mf", "mfing",
