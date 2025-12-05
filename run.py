@@ -57,7 +57,7 @@ from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_O
 # print(result)
 
 
-# from src.aegisai.pipeline.runner import run_job
+# from src.aegisai.pipeline.file_runner import run_job
 # from src.aegisai.pipeline.use_cases import VIDEO_FILE_AUDIO_VIDEO
 
 # input_video = "/home/david/Desktop/ThinkBit/data/samples/both.mp4"
@@ -71,86 +71,103 @@ from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_O
 
 # print("Job completed.")
 # print(result)
-import time
 import os
-
-from src.aegisai.pipeline.runner import (
+import time
+from src.aegisai.pipeline.stream_runner import (
     StreamModerationPipeline,
     ChunkDescriptor,
 )
 
-PROGRAM_START = time.time()
+# ----------------------------
+# CONFIG
+# ----------------------------
+CHUNKS_DIR = "/home/david/Desktop/ThinkBit/data/samples/stream_chunks"
+OUTPUT_DIR = "/home/david/Desktop/ThinkBit/data/samples/stream_chunks_output"
 
-def log(*args):
-    print(f"[{time.time() - PROGRAM_START:6.3f}s]", *args)
+CHUNK_DURATION = 1.0  # 1-second chunks
 
 
-def test_repeated_stream_chunks():
-    CHUNK_SECONDS = 1.0
-    NUM_CHUNKS = 5               # send 5 chunks for testing
-    SEND_INTERVAL = 1.0          # send a chunk every 1 second
+def extract_idx(filename: str) -> int:
+    """
+    'both0.mp4'   -> 0
+    'both5.mp4'   -> 5
+    'both112.mp4' -> 112
+    """
+    name, _ = os.path.splitext(filename)
+    # remove 'both' prefix
+    num_str = name.replace("both", "")
+    return int(num_str)
 
-    input_chunk = "/home/david/Desktop/ThinkBit/data/samples/output_first1s.mp4"
-    output_dir = "/home/david/Desktop/ThinkBit/data/samples/output_first1s_output_dir"
 
-    if not os.path.exists(input_chunk):
-        print("ERROR: input chunk does not exist:", input_chunk)
-        return
+# ----------------------------
+# SETUP PIPELINE
+# ----------------------------
+pipeline = StreamModerationPipeline(
+    output_dir=OUTPUT_DIR,
+    audio_workers=8,
+    video_workers=12,
+    sample_fps=1.0,
+    ffmpeg_workers=2,
+)
 
-    pipeline = StreamModerationPipeline(
-        output_dir=output_dir,
-        audio_workers=4,
-        video_workers=4,
-        sample_fps=1.0,
+print("🔧 Pipeline initialized.")
+
+# ----------------------------
+# GET ALL CHUNK FILES (NUMERIC ORDER)
+# ----------------------------
+all_files = [
+    f for f in os.listdir(CHUNKS_DIR)
+    if f.startswith("both") and f.endswith(".mp4")
+]
+
+files = sorted(all_files, key=extract_idx)
+
+print(f"Found {len(files)} chunks.")
+
+
+# ----------------------------
+# MAIN STREAM LOOP
+# ----------------------------
+for filename in files:
+    idx = extract_idx(filename)  # true chunk index from original video
+    chunk_path = os.path.join(CHUNKS_DIR, filename)
+
+    desc = ChunkDescriptor(
+        chunk_id=idx,
+        start_ts=float(idx),      # second idx in original video
+        duration=CHUNK_DURATION,
+        video_path=chunk_path,
+        audio_path=chunk_path,
     )
 
-    log("=== STARTING STREAM TEST ===")
+    print(f"➡️  Sending chunk {idx}: {filename}")
+    pipeline.submit_chunk(desc)
 
-    next_send = time.time()
+    # simulate 1 second streaming delay
+    time.sleep(1)
 
-    for chunk_id in range(NUM_CHUNKS):
-        # Wait until the next send time
-        now = time.time()
-        if now < next_send:
-            time.sleep(next_send - now)
-
-        # Describe this chunk
-        desc = ChunkDescriptor(
-            chunk_id=chunk_id,
-            start_ts=chunk_id * CHUNK_SECONDS,
-            duration=CHUNK_SECONDS,
-            video_path=input_chunk,
-            audio_path=input_chunk,
-        )
-
-        log(f"Submitting chunk {chunk_id}")
-        pipeline.submit_chunk(desc)
-
-        next_send += SEND_INTERVAL
-
-        # Poll results continuously
-        pipeline.poll()
-        fc = pipeline.get_ready_chunk_nowait()
-        if fc is not None:
-            log(f"[READY] chunk_id={fc.chunk_id}, output={fc.output_path}")
-
-    log("=== ALL CHUNKS SENT ===")
-
-    # Wait some extra time for late results
-    end_wait = time.time() + 3
-    while time.time() < end_wait:
-        pipeline.poll()
-        fc = pipeline.get_ready_chunk_nowait()
-        if fc is not None:
-            log(f"[READY-LATE] chunk_id={fc.chunk_id}, output={fc.output_path}")
-        time.sleep(0.2)
-
-    # Shutdown
-    pipeline.close()
+    # poll for ready chunks
     pipeline.poll()
 
-    log("=== STREAM TEST COMPLETE ===")
+    # fetch all ready chunks
+    while True:
+        ready = pipeline.get_ready_chunk_nowait()
+        if ready is None:
+            break
+        print(f"✅ Ready chunk {ready.chunk_id} → {ready.output_path}")
 
 
-if __name__ == "__main__":
-    test_repeated_stream_chunks()
+# ----------------------------
+# CLOSE PIPELINE (end of stream)
+# ----------------------------
+print("\nStream ended. Finalizing…")
+pipeline.close()
+
+# Drain remaining
+while True:
+    ready = pipeline.get_ready_chunk_nowait()
+    if ready is None:
+        break
+    print(f"🟢 Final ready chunk {ready.chunk_id} → {ready.output_path}")
+
+print("\n🎉 Done! All chunks processed.")
