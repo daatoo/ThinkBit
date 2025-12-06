@@ -9,6 +9,7 @@ from src.aegisai.video.frame_sampler import extract_sampled_frames_from_file
 from src.aegisai.vision.safe_search import analyze_frame_moderation
 from src.aegisai.vision.vision_rules import intervals_from_frames, FrameModerationResult
 from src.aegisai.audio.intervals import merge_intervals
+from src.aegisai.vision.object_localization import localize_objects_from_path
 
 
 Interval = Tuple[float, float]
@@ -64,24 +65,19 @@ def _blur_intervals_in_video(
 
 def filter_video_file(
     input_path: str,
-    output_path: str,
+    output_path: str | None,          # now optional, we don’t use it here
     sample_fps: float = 1.0,
     max_workers: int | None = None,
 ) -> Dict[str, Any]:
     """
     VIDEO moderation on a file.
 
-    Steps:
-      1) Sample frames from file at `sample_fps` FPS (e.g. 1 frame/sec).
-      2) For each frame, run analyze_frame_moderation(...) (SafeSearch + labels) in parallel threads.
-      3) Convert per-frame decisions into unsafe time intervals.
-      4) Merge overlapping intervals.
-      5) Blur those intervals in the video.
-
     Returns:
         {
           "intervals": List[(start, end)],
-          "output_path": output_path,
+          "object_boxes": List[{"timestamp": float, "boxes": List[(x1,y1,x2,y2)]}],
+          "sample_fps": float,
+          "output_path": output_path,   # kept for compatibility, may be None
         }
     """
     if not os.path.isfile(input_path):
@@ -100,19 +96,13 @@ def filter_video_file(
         print(f"[filter_video_file] Extracted {len(frames)} frames at {sample_fps} FPS")
 
         if not frames:
-            print("[filter_video_file] No frames extracted, copying video.")
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", input_path, "-c", "copy", output_path],
-                check=True,
-            )
-            return {"intervals": [], "output_path": output_path}
+            print("[filter_video_file] No frames extracted.")
+            return {"intervals": [], "object_boxes": [], "sample_fps": sample_fps, "output_path": output_path}
 
-        # Decide worker count (don’t go crazy by default)
+        # Decide worker count
         if max_workers is None:
-            # up to 8 threads, but not more than number of frames
             max_workers = min(20, len(frames))
 
-        # 2) Full moderation per frame (IN PARALLEL)
         print(f"[filter_video_file] Analyzing frames with {max_workers} worker threads...")
 
         results: List[FrameModerationResult] = []
@@ -120,8 +110,6 @@ def filter_video_file(
         def _moderate_one(frame_path: str, ts: float) -> FrameModerationResult:
             return analyze_frame_moderation(frame_path, timestamp=ts)
 
-        # Submit all tasks first so they run concurrently,
-        # then collect results in the SAME ORDER as frames.
         from concurrent.futures import ThreadPoolExecutor
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -129,12 +117,10 @@ def filter_video_file(
                 executor.submit(_moderate_one, frame_path, ts)
                 for (frame_path, ts) in frames
             ]
-            # This preserves order: i-th result corresponds to i-th frame
-            for i, fut in enumerate(futures):
+            for fut in futures:
                 results.append(fut.result())
 
         print(f"[filter_video_file] Got {len(results)} moderation results.")
-        print(results)
 
         # 3) Frame decisions -> raw intervals
         frame_step = 1.0 / sample_fps
@@ -146,11 +132,27 @@ def filter_video_file(
         print("[filter_video_file] Raw unsafe intervals:", raw_intervals)
         print("[filter_video_file] Merged unsafe intervals:", merged)
 
-        # # 5) Apply blur
-        # _blur_intervals_in_video(
-        #     video_path=input_path,
-        #     intervals=merged,
-        #     output_video_path=output_path,
-        # )
+        # 5) NEW: per-frame object boxes (for whole-object blur)
+        per_frame_boxes: List[Dict[str, Any]] = []
+        for (frame_path, ts) in frames:
+            objs = localize_objects_from_path(frame_path)
 
-        return {"intervals": merged}
+            # for now, blur all detected objects; you can filter to "person" etc.
+            boxes = [obj.bbox for obj in objs]
+
+            if boxes:
+                per_frame_boxes.append(
+                    {
+                        "timestamp": ts,
+                        "boxes": boxes,
+                    }
+                )
+
+        # NOTE: we DO NOT blur here anymore; we just return info.
+        return {
+            "intervals": merged,
+            "object_boxes": per_frame_boxes,
+            "sample_fps": sample_fps,
+            "output_path": output_path,
+        }
+

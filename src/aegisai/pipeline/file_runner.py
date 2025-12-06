@@ -18,6 +18,7 @@ from src.aegisai.video.segment import extract_audio_track
 
 Interval = Tuple[float, float]
 
+from src.aegisai.video.region_blur import blur_moving_objects_with_intervals
 
 # -------------------------------------------------------------------
 # Helpers
@@ -184,17 +185,17 @@ def run_file_job(
             "output_path": output_path,
         }
 
-    # Video file -> filtered video, same audio ----
     if filter_video_flag and not filter_audio_flag:
-        # Analysis-only call: we just want intervals
         video_result = filter_video_file(input_path, output_path=None)
         video_intervals = _normalize_interval_list(video_result)
-
+        print("Video intervals to blur:", video_intervals)
         if video_intervals:
             _ensure_parent_dir(output_path)
-            blur_intervals_in_video(
+            blur_moving_objects_with_intervals(
                 video_path=input_path,
-                blur_intervals=video_intervals,
+                intervals=video_intervals,
+                object_boxes=video_result.get("object_boxes", []),
+                sample_fps=float(video_result.get("sample_fps", 1.0)),
                 output_video_path=output_path,
             )
         else:
