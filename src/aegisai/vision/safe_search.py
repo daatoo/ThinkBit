@@ -25,8 +25,8 @@ class SafeSearchResult:
     spoof: Likelihood
 
 
-def analyze_safesearch(image_path: str, key_path: str = "secrets/aegis-key.json") -> SafeSearchResult:
-    client = vision.ImageAnnotatorClient.from_service_account_file(key_path)
+def analyze_safesearch(image_path: str) -> SafeSearchResult:
+    client = vision.ImageAnnotatorClient()
 
     with open(image_path, "rb") as f:
         content = f.read()
@@ -57,7 +57,6 @@ from src.aegisai.vision.vision_rules import (
 def analyze_frame_moderation(
     image_path: str,
     timestamp: float,
-    key_path: str = "secrets/aegis-key.json",
 ) -> FrameModerationResult:
     """
     Full per-frame moderation:
@@ -66,12 +65,12 @@ def analyze_frame_moderation(
       - classification + final block decision
     """
     # 1) SafeSearch
-    ss_result = analyze_safesearch(image_path, key_path=key_path)
+    ss_result = analyze_safesearch(image_path)
     ss_info = classify_safesearch(ss_result)
     #print(f"[analyze_frame_moderation] SafeSearch info: {ss_info} for {image_path}")
 
     # 2) Labels (violence etc.)
-    labels = analyze_labels(image_path, key_path=key_path)
+    labels = analyze_labels(image_path)
     labels_info = classify_labels(labels)
     #print(f"Labels: {labels}")
     #print(f"[analyze_frame_moderation] Labels info: {labels_info} for {image_path}")
