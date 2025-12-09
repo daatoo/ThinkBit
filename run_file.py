@@ -36,15 +36,15 @@ from src.aegisai.video.filter_file import filter_video_file
 #     blur_radius=18,
 # )
 
-# video_result = filter_video_file("/home/david/Desktop/ThinkBit/data/samples/both.mp4", output_path=None)
+# video_result = filter_video_file("data/samples/both.mp4", output_path=None)
 # print("Video result:", video_result)
 
 from src.aegisai.pipeline.use_cases import VIDEO_FILE_VIDEO_ONLY
 from src.aegisai.pipeline.file_runner import run_job
 result = run_job(
     cfg=VIDEO_FILE_VIDEO_ONLY,
-    input_path_or_stream="/home/david/Desktop/ThinkBit/data/samples/both.mp4",
-    output_path="/home/david/Desktop/ThinkBit/data/samples/out_both.mp4"
+    input_path_or_stream="data/samples/both.mp4",
+    output_path="data/samples/out_both.mp4"
 )
 
 
