@@ -24,16 +24,19 @@ def classify_safesearch(result):
         "block": block,
     }
 
-def classify_labels(labels, threshold=0.60):
+def classify_labels(labels, threshold=0.15):
     """
     labels: output from analyze_labels()
-    threshold: minimum score to consider relevant
+    threshold: minimum score to consider relevant.
+               Lowered to 0.15 for aggressive weapon detection - better to 
+               over-detect than miss a weapon, especially in dark/unclear footage.
     """
     for item in labels:
         desc = item["description"]
         score = item["score"]
 
         # Check if label is a violence-related keyword
+        # Very low threshold to catch weapons even with low confidence
         if desc in VIOLENCE_LABELS and score >= threshold:
             return {
                 "violence_detected": True,

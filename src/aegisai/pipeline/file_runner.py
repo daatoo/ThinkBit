@@ -191,8 +191,13 @@ def run_file_job(
                 video_path=input_path,
                 intervals=video_intervals,
                 object_boxes=video_result.get("object_boxes", []),
-                sample_fps=float(video_result.get("sample_fps", 1.0)),
+                sample_fps=float(video_result.get("sample_fps", 8.0)),
                 output_video_path=output_path,
+                blur_ksize=65,           # Strong blur
+                expand_boxes=True,       # Expand boxes for better coverage
+                interpolate_boxes=True,  # Smooth interpolation between frames
+                use_tracking=True,       # Enable object tracking
+                expansion_ratio=0.25,    # 25% expansion on each side
             )
         else:
             _copy_if_needed(input_path, output_path)
@@ -226,7 +231,7 @@ def run_file_job(
                 video_result = video_future.result()
                 video_intervals = _normalize_interval_list(video_result)
                 object_boxes = video_result.get("object_boxes", [])
-                sample_fps = float(video_result.get("sample_fps", 1.0))
+                sample_fps = float(video_result.get("sample_fps", 6.0))
 
             working_video = input_path
 
@@ -238,6 +243,11 @@ def run_file_job(
                     object_boxes=object_boxes,
                     sample_fps=sample_fps,
                     output_video_path=working_video,
+                    blur_ksize=65,           # Strong blur
+                    expand_boxes=True,       # Expand boxes for better coverage
+                    interpolate_boxes=True,  # Smooth interpolation between frames
+                    use_tracking=True,       # Enable object tracking
+                    expansion_ratio=0.25,    # 25% expansion on each side
                 )
 
             if audio_intervals:

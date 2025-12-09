@@ -29,14 +29,17 @@ class SamplingPlan:
 
 class FrameSampler:
     """
-    Provides helper methods for calculating 1–3 fps sampling plans.
+    Provides helper methods for calculating frame sampling plans.
+    Default is 8 FPS for better regional blocking accuracy on high-FPS video.
+    Higher sampling provides better temporal coverage for object detection.
+    For 60fps source video, 8fps samples ~13% of frames.
     """
 
     def __init__(
         self,
         min_fps: float = 1.0,
-        max_fps: float = 3.0,
-        default_fps: float = 2.0,
+        max_fps: float = 12.0,
+        default_fps: float = 8.0,
     ) -> None:
         if min_fps <= 0 or max_fps <= 0:
             raise ValueError("fps bounds must be positive.")
