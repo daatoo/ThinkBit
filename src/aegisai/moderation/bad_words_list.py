@@ -6,7 +6,7 @@ from __future__ import annotations
 
 
 import re
-from typing import Iterable, List
+from typing import Iterable, List, Sequence
 
 BAD_WORDS = {
     "today", "english", "word", "everybody", "hey", "speaking",
@@ -145,14 +145,24 @@ def is_bad_word(token: str, extra_bad: Iterable[str] | None = None) -> bool:
 
 
 
-def find_bad_words_in_text(text: str) -> List[str]:
+def _as_blocklist(blocklist: Iterable[str] | None) -> Sequence[str]:
+    """
+    Normalize an incoming blocklist to a sequence we can iterate multiple times.
+    """
+    if blocklist is None:
+        return BAD_WORDS
+    return list(blocklist)
+
+
+def find_bad_words_in_text(text: str, blocklist: Iterable[str] | None = None) -> List[str]:
     """
     Runs the same logic your old `analyze_text` used, but reusable.
+    You can optionally provide a custom blocklist (e.g., top-k words).
     """
     lowered = normalize_text_for_matching(text)
     found: List[str] = []
 
-    for w in BAD_WORDS:
+    for w in _as_blocklist(blocklist):
         pattern = r"\b" + re.escape(w) + r"\b"  # whole-word match
         if re.search(pattern, lowered):
             found.append(w)

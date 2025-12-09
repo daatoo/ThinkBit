@@ -10,6 +10,7 @@ from src.aegisai.vision.safe_search import analyze_frame_moderation
 from src.aegisai.vision.vision_rules import intervals_from_frames, FrameModerationResult
 from src.aegisai.audio.intervals import merge_intervals
 from src.aegisai.vision.object_localization import localize_objects_from_path
+from src.aegisai.vision.object_rules import select_problematic_objects
 
 
 Interval = Tuple[float, float]
@@ -122,6 +123,9 @@ def filter_video_file(
 
         print(f"[filter_video_file] Got {len(results)} moderation results.")
 
+        # Build a quick lookup so detections can consult the matching frame decision
+        result_lookup = {round(r.timestamp, 3): r for r in results}
+
         # 3) Frame decisions -> raw intervals
         frame_step = 1.0 / sample_fps
         raw_intervals = intervals_from_frames(results, frame_step=frame_step)
@@ -136,15 +140,17 @@ def filter_video_file(
         per_frame_boxes: List[Dict[str, Any]] = []
         for (frame_path, ts) in frames:
             objs = localize_objects_from_path(frame_path)
-
-            # for now, blur all detected objects; you can filter to "person" etc.
-            boxes = [obj.bbox for obj in objs]
+            frame_result = result_lookup.get(round(ts, 3))
+            filtered = select_problematic_objects(objs, frame_result)
+            boxes = [obj.bbox for obj in filtered]
 
             if boxes:
                 per_frame_boxes.append(
                     {
                         "timestamp": ts,
                         "boxes": boxes,
+                        "labels": [obj.label for obj in filtered],
+                        "reasons": [obj.reason for obj in filtered],
                     }
                 )
 
