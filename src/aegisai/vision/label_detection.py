@@ -1,13 +1,13 @@
 from google.cloud import vision
 
 
-def analyze_labels(image_path: str, key_path: str = "secrets/aegis-key.json"):
+def analyze_labels(image_path: str):
     """
     Analyze an image using Google Cloud Vision label detection.
     Uses the same service account as SafeSearch for consistency.
     """
     # Use the service account key (important!)
-    client = vision.ImageAnnotatorClient.from_service_account_file(key_path)
+    client = vision.ImageAnnotatorClient()
 
     # Load the image
     with open(image_path, "rb") as f:

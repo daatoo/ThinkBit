@@ -57,17 +57,117 @@ from src.aegisai.pipeline.use_cases import AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_O
 # print(result)
 
 
-from src.aegisai.pipeline.runner import run_job
-from src.aegisai.pipeline.use_cases import VIDEO_FILE_AUDIO_VIDEO
+# from src.aegisai.pipeline.file_runner import run_job
+# from src.aegisai.pipeline.use_cases import VIDEO_FILE_AUDIO_VIDEO
 
-input_video = "/home/david/Desktop/ThinkBit/data/samples/both.mp4"
-output_video = "/home/david/Desktop/ThinkBit/data/samples/both_output.mp4"
+# input_video = "/home/david/Desktop/ThinkBit/data/samples/both.mp4"
+# output_video = "/home/david/Desktop/ThinkBit/data/samples/both_output.mp4"
 
-result = run_job(
-    cfg=VIDEO_FILE_AUDIO_VIDEO,
-    input_path_or_stream=input_video,
-    output_path=output_video,
+# result = run_job(
+#     cfg=VIDEO_FILE_AUDIO_VIDEO,
+#     input_path_or_stream=input_video,
+#     output_path=output_video,
+# )
+
+# print("Job completed.")
+# print(result)
+import os
+import time
+from src.aegisai.pipeline.stream_runner import (
+    StreamModerationPipeline,
+    ChunkDescriptor,
 )
 
-print("Job completed.")
-print(result)
+# ----------------------------
+# CONFIG
+# ----------------------------
+CHUNKS_DIR = "/home/david/Desktop/ThinkBit/data/samples/stream_chunks"
+OUTPUT_DIR = "/home/david/Desktop/ThinkBit/data/samples/stream_chunks_output"
+
+CHUNK_DURATION = 1.0  # 1-second chunks
+
+
+def extract_idx(filename: str) -> int:
+    """
+    'both0.mp4'   -> 0
+    'both5.mp4'   -> 5
+    'both112.mp4' -> 112
+    """
+    name, _ = os.path.splitext(filename)
+    # remove 'both' prefix
+    num_str = name.replace("both", "")
+    return int(num_str)
+
+
+# ----------------------------
+# SETUP PIPELINE
+# ----------------------------
+pipeline = StreamModerationPipeline(
+    output_dir=OUTPUT_DIR,
+    audio_workers=8,
+    video_workers=12,
+    sample_fps=1.0,
+    ffmpeg_workers=2,
+)
+
+print("🔧 Pipeline initialized.")
+
+# ----------------------------
+# GET ALL CHUNK FILES (NUMERIC ORDER)
+# ----------------------------
+all_files = [
+    f for f in os.listdir(CHUNKS_DIR)
+    if f.startswith("both") and f.endswith(".mp4")
+]
+
+files = sorted(all_files, key=extract_idx)
+
+print(f"Found {len(files)} chunks.")
+
+
+# ----------------------------
+# MAIN STREAM LOOP
+# ----------------------------
+for filename in files:
+    idx = extract_idx(filename)  # true chunk index from original video
+    chunk_path = os.path.join(CHUNKS_DIR, filename)
+
+    desc = ChunkDescriptor(
+        chunk_id=idx,
+        start_ts=float(idx),      # second idx in original video
+        duration=CHUNK_DURATION,
+        video_path=chunk_path,
+        audio_path=chunk_path,
+    )
+
+    print(f"➡️  Sending chunk {idx}: {filename}")
+    pipeline.submit_chunk(desc)
+
+    # simulate 1 second streaming delay
+    time.sleep(1)
+
+    # poll for ready chunks
+    pipeline.poll()
+
+    # fetch all ready chunks
+    while True:
+        ready = pipeline.get_ready_chunk_nowait()
+        if ready is None:
+            break
+        print(f"✅ Ready chunk {ready.chunk_id} → {ready.output_path}")
+
+
+# ----------------------------
+# CLOSE PIPELINE (end of stream)
+# ----------------------------
+print("\nStream ended. Finalizing…")
+pipeline.close()
+
+# Drain remaining
+while True:
+    ready = pipeline.get_ready_chunk_nowait()
+    if ready is None:
+        break
+    print(f"🟢 Final ready chunk {ready.chunk_id} → {ready.output_path}")
+
+print("\n🎉 Done! All chunks processed.")

@@ -1,7 +1,46 @@
+from __future__ import annotations
+
 import subprocess
 from typing import Sequence, Tuple, List
-
+import cv2
+import numpy as np
 Interval = Tuple[float, float]
+Box = Tuple[int, int, int, int]  # (x1, y1, x2, y2)
+
+
+
+def blur_boxes_in_frame(
+    frame: np.ndarray,
+    boxes: Sequence[Box],
+    ksize: int = 75,
+) -> np.ndarray:
+    """
+    In-place Gaussian blur over the given bounding boxes.
+
+    frame: BGR uint8 image from OpenCV
+    boxes: list of (x1, y1, x2, y2)
+    ksize: odd kernel size for GaussianBlur (e.g. 15, 25, 35)
+    """
+    h, w = frame.shape[:2]
+
+    for (x1, y1, x2, y2) in boxes:
+        # clamp to frame
+        x1 = max(0, min(x1, w))
+        x2 = max(0, min(x2, w))
+        y1 = max(0, min(y1, h))
+        y2 = max(0, min(y2, h))
+        if x2 <= x1 or y2 <= y1:
+            continue
+
+        roi = frame[y1:y2, x1:x2]
+        # ksize must be odd
+        k = max(3, ksize | 1)
+        blurred = cv2.GaussianBlur(roi, (k, k), 0)
+        blurred = cv2.medianBlur(blurred, k)
+        blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+        frame[y1:y2, x1:x2] = blurred
+
+    return frame
 
 
 def blur_and_mute_intervals_in_video(

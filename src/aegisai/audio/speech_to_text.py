@@ -1,13 +1,20 @@
 from google.cloud import speech
 
 
+_CLIENT: speech.SpeechClient | None = None
 
-def transcribe_audio(file_path: str, key_path: str = "/home/david/Desktop/ThinkBit/secrets/aegis-key.json"):
+def _get_client() -> speech.SpeechClient:
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = speech.SpeechClient()
+    return _CLIENT
+
+def transcribe_audio(file_path: str):
     """
     Transcribe a 16kHz mono LINEAR16 WAV file using Google Speech-to-Text.
     """
 
-    client = speech.SpeechClient.from_service_account_file(key_path)
+    client = _get_client()
 
     # Load audio file
     with open(file_path, "rb") as f:
