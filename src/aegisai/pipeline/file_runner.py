@@ -9,11 +9,7 @@ from typing import Any, Optional, List, Tuple, Dict
 from src.aegisai.pipeline.config import PipelineConfig
 from src.aegisai.audio.filter_file import filter_audio_file
 from src.aegisai.video.filter_file import filter_video_file
-from src.aegisai.video.ffmpeg_edit import (
-    mute_intervals_in_video,
-    blur_intervals_in_video,
-    blur_and_mute_intervals_in_video,
-)
+from src.aegisai.video.ffmpeg_edit import mute_intervals_in_video
 from src.aegisai.video.segment import extract_audio_track
 
 Interval = Tuple[float, float]
@@ -195,8 +191,13 @@ def run_file_job(
                 video_path=input_path,
                 intervals=video_intervals,
                 object_boxes=video_result.get("object_boxes", []),
-                sample_fps=float(video_result.get("sample_fps", 1.0)),
+                sample_fps=float(video_result.get("sample_fps", 8.0)),
                 output_video_path=output_path,
+                blur_ksize=65,           # Strong blur
+                expand_boxes=True,       # Expand boxes for better coverage
+                interpolate_boxes=True,  # Smooth interpolation between frames
+                use_tracking=True,       # Enable object tracking
+                expansion_ratio=0.25,    # 25% expansion on each side
             )
         else:
             _copy_if_needed(input_path, output_path)
@@ -218,9 +219,8 @@ def run_file_job(
                     chunk_seconds=audio_chunk_seconds,
                 )
 
-            def video_job() -> List[Interval]:
-                video_result_inner = filter_video_file(input_path, output_path=None)
-                return _normalize_interval_list(video_result_inner)
+            def video_job() -> Dict[str, Any]:
+                return filter_video_file(input_path, output_path=None)
 
             # Run audio + video analysis in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -228,18 +228,37 @@ def run_file_job(
                 video_future = executor.submit(video_job)
 
                 audio_intervals = audio_future.result()
-                video_intervals = video_future.result()
+                video_result = video_future.result()
+                video_intervals = _normalize_interval_list(video_result)
+                object_boxes = video_result.get("object_boxes", [])
+                sample_fps = float(video_result.get("sample_fps", 6.0))
 
-        if audio_intervals or video_intervals:
-            _ensure_parent_dir(output_path)
-            blur_and_mute_intervals_in_video(
-                video_path=input_path,
-                blur_intervals=video_intervals,
-                mute_intervals=audio_intervals,
-                output_video_path=output_path,
-            )
-        else:
-            _copy_if_needed(input_path, output_path)
+            working_video = input_path
+
+            if video_intervals:
+                working_video = os.path.join(tmpdir, "video_blurred.mp4")
+                blur_moving_objects_with_intervals(
+                    video_path=input_path,
+                    intervals=video_intervals,
+                    object_boxes=object_boxes,
+                    sample_fps=sample_fps,
+                    output_video_path=working_video,
+                    blur_ksize=65,           # Strong blur
+                    expand_boxes=True,       # Expand boxes for better coverage
+                    interpolate_boxes=True,  # Smooth interpolation between frames
+                    use_tracking=True,       # Enable object tracking
+                    expansion_ratio=0.25,    # 25% expansion on each side
+                )
+
+            if audio_intervals:
+                _ensure_parent_dir(output_path)
+                mute_intervals_in_video(
+                    video_path=working_video,
+                    mute_intervals=audio_intervals,
+                    output_video_path=output_path,
+                )
+            else:
+                _copy_if_needed(working_video, output_path)
 
         return {
             "audio_intervals": audio_intervals,

@@ -84,7 +84,7 @@ Offline (file) video moderation: sample frames, run Vision, compute unsafe inter
   4. `max_workers = min(20, len(frames))` if None.
   5. Moderation: `ThreadPoolExecutor`, each frame → `analyze_frame_moderation(frame_path, timestamp=ts)`; gather `FrameModerationResult`s.
   6. `frame_step = 1.0 / sample_fps`; `raw_intervals = intervals_from_frames(results, frame_step)`; `merged = merge_intervals(raw_intervals)`.
-  7. Object boxes: for each `(frame_path, ts)` → `objs = localize_objects_from_path(frame_path)`; `boxes = [obj.bbox for obj in objs]`; if any, append:
+  7. Object boxes: for each `(frame_path, ts)` → `objs = localize_objects_from_path(frame_path)`; keep only harmful detections via `select_problematic_objects` (weapons, nudity terms, or people in adult/racy frames); `boxes = [obj.bbox for obj in filtered_objs]`; if any, append:
      ```python
      {"timestamp": ts, "boxes": boxes}
      ```

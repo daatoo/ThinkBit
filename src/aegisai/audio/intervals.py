@@ -40,9 +40,20 @@ def detect_toxic_segments(
 
 
 
-def merge_intervals(intervals: List[Interval]) -> List[Interval]:
+def merge_intervals(
+    intervals: List[Interval], 
+    gap_threshold: float = 0.0,
+) -> List[Interval]:
     """
     Merge overlapping or adjacent [start, end] intervals.
+    
+    Args:
+        intervals: List of (start, end) time intervals
+        gap_threshold: Also merge intervals within this gap (seconds).
+                       Default 0.0 means only merge overlapping/touching intervals.
+                       
+    Returns:
+        List of merged intervals, sorted by start time.
     """
     if not intervals:
         return []
@@ -52,7 +63,8 @@ def merge_intervals(intervals: List[Interval]) -> List[Interval]:
     cur_start, cur_end = intervals[0]
 
     for start, end in intervals[1:]:
-        if start <= cur_end:  # overlapping or touching
+        # Merge if overlapping, touching, or within gap threshold
+        if start <= cur_end + gap_threshold:
             cur_end = max(cur_end, end)
         else:
             merged.append((cur_start, cur_end))

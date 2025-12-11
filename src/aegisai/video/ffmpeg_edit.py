@@ -1,46 +1,132 @@
 from __future__ import annotations
 
 import subprocess
-from typing import Sequence, Tuple, List
+from typing import Sequence, Tuple, List, Optional
 import cv2
 import numpy as np
+
 Interval = Tuple[float, float]
 Box = Tuple[int, int, int, int]  # (x1, y1, x2, y2)
 
+# ─────────────────────────────────────────────────────────
+# Blur Configuration
+# ─────────────────────────────────────────────────────────
+DEFAULT_BLUR_KSIZE = 75       # Base kernel size
+PIXELATION_FACTOR = 12        # Pixelation block size
+BLUR_ITERATIONS = 3           # Number of blur passes
 
 
 def blur_boxes_in_frame(
     frame: np.ndarray,
     boxes: Sequence[Box],
-    ksize: int = 75,
+    ksize: int = DEFAULT_BLUR_KSIZE,
+    method: str = "heavy",
 ) -> np.ndarray:
     """
-    In-place Gaussian blur over the given bounding boxes.
+    Apply strong blur/pixelation to bounding boxes to fully obscure content.
+    
+    Multiple blur methods available:
+    - "heavy": Multi-pass Gaussian + median blur (best coverage)
+    - "pixelate": Pixelation effect (blocky, very effective)
+    - "blackout": Complete black fill (maximum obscuring)
+    - "combined": Pixelation + blur (recommended)
 
-    frame: BGR uint8 image from OpenCV
-    boxes: list of (x1, y1, x2, y2)
-    ksize: odd kernel size for GaussianBlur (e.g. 15, 25, 35)
+    Args:
+        frame: BGR uint8 image from OpenCV
+        boxes: list of (x1, y1, x2, y2) bounding boxes
+        ksize: Kernel size for blur (higher = stronger blur)
+        method: Blur method to use
+        
+    Returns:
+        Frame with blurred regions
     """
     h, w = frame.shape[:2]
 
     for (x1, y1, x2, y2) in boxes:
-        # clamp to frame
-        x1 = max(0, min(x1, w))
-        x2 = max(0, min(x2, w))
-        y1 = max(0, min(y1, h))
-        y2 = max(0, min(y2, h))
+        # Clamp coordinates to frame bounds
+        x1 = max(0, min(int(x1), w - 1))
+        x2 = max(0, min(int(x2), w))
+        y1 = max(0, min(int(y1), h - 1))
+        y2 = max(0, min(int(y2), h))
+        
         if x2 <= x1 or y2 <= y1:
             continue
 
         roi = frame[y1:y2, x1:x2]
-        # ksize must be odd
-        k = max(3, ksize | 1)
-        blurred = cv2.GaussianBlur(roi, (k, k), 0)
-        blurred = cv2.medianBlur(blurred, k)
-        blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+        roi_h, roi_w = roi.shape[:2]
+        
+        if roi_h < 2 or roi_w < 2:
+            continue
+        
+        # Ensure kernel size is appropriate for ROI size
+        k = min(ksize, min(roi_w, roi_h) - 1)
+        k = max(3, k | 1)  # Must be odd and at least 3
+        
+        if method == "heavy":
+            # Multi-pass heavy blur for thorough obscuring
+            blurred = roi.copy()
+            for _ in range(BLUR_ITERATIONS):
+                blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+            
+            # Add median blur for even more smoothing
+            median_k = min(k, 31)  # medianBlur has size limit
+            median_k = max(3, median_k | 1)
+            blurred = cv2.medianBlur(blurred, median_k)
+            
+            # Final Gaussian pass
+            blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+            
+        elif method == "pixelate":
+            # Pixelation - very effective at obscuring details
+            pixel_size = max(PIXELATION_FACTOR, min(roi_w, roi_h) // 8)
+            small_w = max(1, roi_w // pixel_size)
+            small_h = max(1, roi_h // pixel_size)
+            
+            blurred = cv2.resize(roi, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
+            blurred = cv2.resize(blurred, (roi_w, roi_h), interpolation=cv2.INTER_NEAREST)
+            
+        elif method == "blackout":
+            # Complete black fill - maximum obscuring
+            blurred = np.zeros_like(roi)
+            
+        elif method == "combined":
+            # Pixelation + blur (recommended for best results)
+            # Step 1: Pixelate
+            pixel_size = max(PIXELATION_FACTOR // 2, min(roi_w, roi_h) // 10)
+            small_w = max(1, roi_w // pixel_size)
+            small_h = max(1, roi_h // pixel_size)
+            
+            blurred = cv2.resize(roi, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
+            blurred = cv2.resize(blurred, (roi_w, roi_h), interpolation=cv2.INTER_NEAREST)
+            
+            # Step 2: Apply Gaussian blur on top
+            blur_k = max(3, (k // 2) | 1)
+            blurred = cv2.GaussianBlur(blurred, (blur_k, blur_k), 0)
+            
+        else:
+            # Default: standard multi-pass blur
+            blurred = roi.copy()
+            for _ in range(BLUR_ITERATIONS):
+                blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+            blurred = cv2.medianBlur(blurred, max(3, min(k, 31) | 1))
+            blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+        
         frame[y1:y2, x1:x2] = blurred
 
     return frame
+
+
+def blur_full_frame(
+    frame: np.ndarray,
+    ksize: int = DEFAULT_BLUR_KSIZE,
+) -> np.ndarray:
+    """
+    Apply blur to entire frame.
+    """
+    k = max(3, ksize | 1)
+    blurred = cv2.GaussianBlur(frame, (k, k), 0)
+    blurred = cv2.GaussianBlur(blurred, (k, k), 0)
+    return blurred
 
 
 def blur_and_mute_intervals_in_video(
