@@ -53,6 +53,17 @@ AI is used to achieve the efficiency, speed, and customization that manual censo
 ## Setup
 See [`docs/setup.md`](./docs/setup.md)
 
+### Quick Start
+To set up the environment and run both backend and frontend:
+```bash
+./start_app.sh
+```
+This script will:
+- Check for `ffmpeg`
+- Create a python virtual environment and install dependencies
+- Start the backend server
+- Install frontend dependencies and start the frontend development server
+
 ## Frontend
 - https://github.com/NW0RK/safestream-ui
 - https://prototype-aegis-ai.lovable.app
