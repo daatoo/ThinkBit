@@ -9,6 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import ProcessingState from "./ProcessingState";
 import OutputPreview from "./OutputPreview";
+import { uploadFile, MediaResponse } from "@/lib/api";
+import { toast } from "sonner";
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -28,6 +30,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
   const [dialogState, setDialogState] = useState<DialogState>("upload");
   const [streamUrl, setStreamUrl] = useState("");
   const [outputUrl, setOutputUrl] = useState("");
+  const [processedMedia, setProcessedMedia] = useState<MediaResponse | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isStream = filterMode?.type === "stream";
@@ -67,16 +70,62 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const handleProcess = useCallback(() => {
-    setDialogState("processing");
-  }, []);
+  const handleProcess = useCallback(async () => {
+    if (isStream) {
+       // Stream logic placeholder
+       toast.error("Streaming not implemented yet");
+       return;
+    }
+    if (!selectedFile) return;
 
-  const handleProcessingComplete = useCallback(() => {
-    setDialogState("preview");
-  }, []);
+    setDialogState("processing");
+
+    // Determine filter flags based on filterMode.label or description
+    // Default logic:
+    // Audio type: filterAudio=true, filterVideo=false
+    // Video type:
+    //   "Clean Audio Only": filterAudio=true, filterVideo=false
+    //   "Clean Video Only": filterAudio=false, filterVideo=true
+    //   "Full Filter" (or anything else): filterAudio=true, filterVideo=true
+
+    let filterAudio = true;
+    let filterVideo = false;
+
+    if (filterMode?.type === "video") {
+        if (filterMode.label.includes("Clean Audio Only")) {
+            filterAudio = true;
+            filterVideo = false;
+        } else if (filterMode.label.includes("Clean Video Only")) {
+            filterAudio = false;
+            filterVideo = true;
+        } else {
+            // Full Filter or default
+            filterAudio = true;
+            filterVideo = true;
+        }
+    } else if (filterMode?.type === "audio") {
+        filterAudio = true;
+        filterVideo = false;
+    }
+
+    try {
+      const result = await uploadFile(selectedFile, filterAudio, filterVideo);
+      setProcessedMedia(result);
+      setDialogState("preview");
+      toast.success("Processing complete!");
+    } catch (error) {
+      console.error(error);
+      setDialogState("upload");
+      toast.error("Processing failed. Please try again.");
+    }
+  }, [selectedFile, isStream]);
+
+  // Removed handleProcessingComplete as it's no longer used by ProcessingState
+  // ProcessingState is now just a visual indicator controlled by dialogState
 
   const handleReset = useCallback(() => {
     setSelectedFile(null);
+    setProcessedMedia(null);
     setDialogState("upload");
   }, []);
 
@@ -249,16 +298,17 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
         {dialogState === "processing" && (
           <ProcessingState
             fileName={selectedFile?.name || "Stream"}
-            onComplete={handleProcessingComplete}
+            onComplete={() => {}} // No-op, controlled by async/await
           />
         )}
 
-        {dialogState === "preview" && selectedFile && (
+        {dialogState === "preview" && selectedFile && processedMedia && (
           <OutputPreview
             fileName={selectedFile.name}
             fileType={isAudio ? "audio" : "video"}
             filterMode={filterMode?.label || ""}
             onReset={handleReset}
+            mediaId={processedMedia.id}
           />
         )}
       </DialogContent>

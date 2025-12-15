@@ -39,13 +39,16 @@ const ProcessingState = ({ fileName, onComplete }: ProcessingStateProps) => {
       }
 
       if (elapsed >= totalDuration) {
-        clearInterval(interval);
-        setTimeout(onComplete, 300);
+        // Reset to loop the animation while waiting for actual completion
+        elapsed = 0;
+        stepProgress = 0;
+        // Keep the last step or loop? Let's loop visually but keep text static or cycle
+        // For now, let's just let it loop the progress bar but keep the text "Processing..."
       }
     }, 50);
 
     return () => clearInterval(interval);
-  }, [onComplete]);
+  }, []);
 
   return (
     <div className="space-y-8 py-4">

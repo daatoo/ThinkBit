@@ -2,15 +2,17 @@ import { useState } from "react";
 import { Download, Play, Pause, Volume2, VolumeX, RotateCcw, Check, Share2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { getDownloadUrl } from "@/lib/api";
 
 interface OutputPreviewProps {
   fileName: string;
   fileType: "audio" | "video";
   filterMode: string;
   onReset: () => void;
+  mediaId: number;
 }
 
-const OutputPreview = ({ fileName, fileType, filterMode, onReset }: OutputPreviewProps) => {
+const OutputPreview = ({ fileName, fileType, filterMode, onReset, mediaId }: OutputPreviewProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -41,36 +43,14 @@ const OutputPreview = ({ fileName, fileType, filterMode, onReset }: OutputPrevie
       <div className="relative rounded-2xl overflow-hidden bg-secondary/50 border border-border/50">
         {fileType === "video" ? (
           <div className="aspect-video bg-gradient-to-br from-secondary to-background flex items-center justify-center relative group">
-            {/* Video placeholder with waveform visualization */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex items-end gap-1 h-16">
-                {Array.from({ length: 32 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "w-1 bg-primary/40 rounded-full transition-all duration-150",
-                      isPlaying && "animate-pulse"
-                    )}
-                    style={{
-                      height: `${Math.sin(i * 0.5) * 30 + 40}%`,
-                      animationDelay: `${i * 50}ms`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            {/* Play overlay */}
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="relative z-10 w-20 h-20 rounded-full bg-primary/20 backdrop-blur-sm border border-primary/30 flex items-center justify-center group-hover:bg-primary/30 transition-all"
+            {/* Use actual video element if mediaId is present, else placeholder */}
+            <video
+                src={getDownloadUrl(mediaId)}
+                className="w-full h-full object-contain"
+                controls
             >
-              {isPlaying ? (
-                <Pause className="w-8 h-8 text-primary" />
-              ) : (
-                <Play className="w-8 h-8 text-primary ml-1" />
-              )}
-            </button>
+                Your browser does not support the video tag.
+            </video>
 
             {/* Fullscreen button */}
             <button className="absolute top-4 right-4 w-10 h-10 rounded-lg bg-background/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -79,76 +59,17 @@ const OutputPreview = ({ fileName, fileType, filterMode, onReset }: OutputPrevie
           </div>
         ) : (
           <div className="p-8 flex flex-col items-center justify-center min-h-[200px]">
-            {/* Audio waveform */}
-            <div className="flex items-end gap-0.5 h-24 mb-6">
-              {Array.from({ length: 64 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "w-1 bg-gradient-to-t from-primary/60 to-primary rounded-full transition-all duration-75",
-                    isPlaying && "animate-pulse"
-                  )}
-                  style={{
-                    height: `${Math.abs(Math.sin(i * 0.3) * Math.cos(i * 0.1)) * 80 + 20}%`,
-                    animationDelay: `${i * 30}ms`,
-                  }}
-                />
-              ))}
-            </div>
-            
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="w-16 h-16 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center hover:bg-primary/30 transition-all"
+             <audio
+                src={getDownloadUrl(mediaId)}
+                controls
+                className="w-full"
             >
-              {isPlaying ? (
-                <Pause className="w-6 h-6 text-primary" />
-              ) : (
-                <Play className="w-6 h-6 text-primary ml-0.5" />
-              )}
-            </button>
+                Your browser does not support the audio tag.
+            </audio>
           </div>
         )}
 
-        {/* Progress bar and controls */}
-        <div className="p-4 border-t border-border/50">
-          <div className="flex items-center gap-4 mb-3">
-            <span className="text-xs font-mono text-muted-foreground w-12">{formatTime(currentTime)}</span>
-            <div className="flex-1 relative">
-              <Progress value={progress} className="h-1.5 bg-secondary" />
-              <input
-                type="range"
-                min={0}
-                max={duration}
-                value={currentTime}
-                onChange={(e) => setCurrentTime(Number(e.target.value))}
-                className="absolute inset-0 w-full opacity-0 cursor-pointer"
-              />
-            </div>
-            <span className="text-xs font-mono text-muted-foreground w-12 text-right">{formatTime(duration)}</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className="w-9 h-9 rounded-lg hover:bg-secondary flex items-center justify-center transition-colors"
-              >
-                {isMuted ? (
-                  <VolumeX className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-foreground" />
-                )}
-              </button>
-            </div>
-            
-            <div className="text-center">
-              <p className="text-sm font-medium text-foreground truncate max-w-[200px]">{fileName}</p>
-              <p className="text-xs text-muted-foreground">{filterMode}</p>
-            </div>
-
-            <div className="w-9" /> {/* Spacer for balance */}
-          </div>
-        </div>
+        {/* Custom controls removed in favor of native controls for simplicity and robustness with actual media */}
       </div>
 
       {/* Comparison toggle */}
@@ -173,10 +94,10 @@ const OutputPreview = ({ fileName, fileType, filterMode, onReset }: OutputPrevie
           <Share2 className="w-4 h-4" />
           <span className="text-sm">Share</span>
         </button>
-        <button className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl gradient-button">
+        <a href={getDownloadUrl(mediaId)} download className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl gradient-button">
           <Download className="w-4 h-4" />
           <span className="text-sm">Download</span>
-        </button>
+        </a>
       </div>
 
       {/* Processing stats */}
