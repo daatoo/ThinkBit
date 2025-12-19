@@ -27,55 +27,55 @@ const HeroSection = () => {
                 Now with real-time processing
               </span>
             </div>
-            
+
             {/* Main heading */}
-            <h1 
-              className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 opacity-0 animate-fade-in leading-[1.1] uppercase italic"
+            <h1
+              className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 opacity-0 animate-fade-in leading-[1.1] uppercase italic pr-4"
               style={{ animationDelay: "100ms", textShadow: "4px 4px 0px #ff00ff" }}
             >
               <span className="text-white drop-shadow-md">Content protection</span>
               <br />
               <span className="text-white drop-shadow-md">powered by </span>
-              <span className="gradient-text">AegisAI</span>
+              <span className="gradient-text">AegisAI.</span>
             </h1>
-            
+
             {/* Specific requested text */}
             <div className="mb-8 opacity-0 animate-fade-in" style={{ animationDelay: "150ms" }}>
-                <p className="text-xl md:text-2xl font-mono text-secondary font-bold text-glow">
-                    processed over 1 million requests during the last day
-                </p>
+              <p className="text-xl md:text-2xl font-mono text-secondary font-bold text-glow">
+                processed over 1 million requests during the last day
+              </p>
             </div>
 
             {/* Subheading */}
-            <p 
+            <p
               className="text-base md:text-lg text-gray-300 max-w-lg mb-10 leading-relaxed opacity-0 animate-fade-in font-mono"
               style={{ animationDelay: "200ms" }}
             >
               Enterprise-grade neural networks that detect and filter inappropriate content across audio and video. Built for families, broadcasters, and platforms that demand precision.
             </p>
-            
+
             {/* CTA buttons */}
-            <div 
+            <div
               className="flex flex-col sm:flex-row gap-6 opacity-0 animate-fade-in"
               style={{ animationDelay: "300ms" }}
             >
               <button className="gradient-button px-8 py-4 text-base flex items-center justify-center gap-2 group">
                 <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5" />
-                    <span>Start Free Trial</span>
-                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                  <Shield className="w-5 h-5" />
+                  <span>Start Free Trial</span>
+                  <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                 </div>
               </button>
               <button className="px-8 py-4 font-bold text-base text-white border-2 border-secondary/60 hover:border-secondary hover:bg-secondary/10 transition-all duration-300 flex items-center justify-center gap-2 transform skew-x-[-10deg] hover:shadow-[0_0_15px_rgba(32,226,215,0.5)]">
                 <div className="flex items-center gap-2 transform skew-x-[10deg]">
-                    <Play className="w-5 h-5 text-secondary" />
-                    <span className="text-secondary">Watch Demo</span>
+                  <Play className="w-5 h-5 text-secondary" />
+                  <span className="text-secondary">Watch Demo</span>
                 </div>
               </button>
             </div>
 
             {/* Quick stats */}
-            <div 
+            <div
               className="flex items-center gap-8 mt-12 pt-8 border-t border-primary/30 opacity-0 animate-fade-in"
               style={{ animationDelay: "400ms" }}
             >
@@ -97,7 +97,7 @@ const HeroSection = () => {
           </div>
 
           {/* Right visual */}
-          <div 
+          <div
             className="relative opacity-0 animate-fade-in hidden lg:block"
             style={{ animationDelay: "300ms" }}
           >
@@ -121,19 +121,19 @@ const HeroSection = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Overlay gradient */}
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-80" />
-                
+
                 {/* Status indicator */}
                 <div className="absolute bottom-6 left-6 right-6 p-4 rounded-none bg-card/90 border border-primary/50 backdrop-blur-sm shadow-[0_0_15px_rgba(32,226,215,0.15)]">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-white uppercase font-mono tracking-widest">Content Analysis</span>
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-primary font-mono animate-pulse">● LIVE</span>
                   </div>
-                  <div className="h-2 bg-gray-800 rounded-none overflow-hidden border border-gray-700">
-                    <div className="h-full w-3/4 bg-gradient-to-r from-primary to-secondary animate-shimmer"
-                         style={{ backgroundSize: '200% 100%' }} />
+                  <div className="mt-2 text-center overflow-hidden relative">
+                    <span className="relative inline-block text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#ff00ff] via-[#00ffff] to-[#ff00ff] animate-bg-pan font-mono tracking-widest drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">
+                      PROTECTING HUMANITY
+                    </span>
                   </div>
                 </div>
               </div>
@@ -141,7 +141,7 @@ const HeroSection = () => {
               {/* Decorative elements */}
               <div className="absolute -top-4 -right-4 w-20 h-20 border-2 border-primary/40 rounded-none rotate-12 z-[-1]" />
               <div className="absolute -bottom-4 -left-4 w-16 h-16 border-2 border-secondary/40 rounded-none -rotate-12 z-[-1]" />
-              
+
               {/* Floating badge */}
               <div className="absolute -top-6 -right-6 px-4 py-2 bg-black border border-primary shadow-[0_0_15px_#ff00ff] transform rotate-3">
                 <div className="flex items-center gap-2">
