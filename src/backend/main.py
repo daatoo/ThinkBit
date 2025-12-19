@@ -6,7 +6,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy import and_
@@ -63,6 +63,8 @@ def _to_response(media: ProcessedMedia) -> MediaResponse:
         filter_audio=media.filter_audio,
         filter_video=media.filter_video,
         status=media.status,
+        progress=media.progress,
+        current_activity=media.current_activity,
         error_message=media.error_message,
         created_at=media.created_at,
         updated_at=media.updated_at,
@@ -197,8 +199,69 @@ def delete_media(media_id: int, db: Session = Depends(get_db)):
     return MessageResponse(message="Deleted")
 
 
+def run_pipeline_background(media_id: int, db: Session):
+    try:
+        media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+        if not media:
+            return
+
+        media.status = ProcessStatus.PROCESSING
+        media.progress = 0
+        media.current_activity = "Starting..."
+        db.commit()
+
+        def progress_callback(progress: int, activity: str):
+            try:
+                # Re-fetch to avoid stale object? 
+                # Or just update inplace if session is alive.
+                # Just separate transaction might be safer if frequent updates.
+                media.progress = progress
+                media.current_activity = activity
+                db.commit()
+            except Exception as e:
+                logger.error(f"Error updating progress: {e}")
+
+        result = process_media(
+            input_path=Path(media.input_path),
+            input_type=media.input_type,
+            output_dir=OUTPUTS_DIR,
+            filter_audio=media.filter_audio,
+            filter_video=media.filter_video,
+            progress_callback=progress_callback,
+        )
+
+        media.output_path = result["output_path"]
+        media.status = ProcessStatus.DONE
+        media.progress = 100
+        media.current_activity = "Completed"
+        db.commit()
+
+        for seg in result.get("segments", []):
+            db.add(CensorSegment(
+                media_id=media.id,
+                start_ms=int(seg["start_ms"]),
+                end_ms=int(seg["end_ms"]),
+                action_type=str(seg.get("action_type") or "mute"),
+                reason=str(seg.get("reason") or ""),
+            ))
+
+        db.commit()
+
+    except Exception as exc:
+        logger.exception("Pipeline failed")
+        try:
+            media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+            if media:
+                media.status = ProcessStatus.FAILED
+                media.error_message = str(exc)
+                db.commit()
+        except:
+            pass
+
+
 @app.post("/process", response_model=MediaResponse)
 async def process_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     filter_audio: bool = Query(True),
     filter_video: bool = Query(False),
@@ -247,45 +310,14 @@ async def process_file(
         filter_audio=filter_audio,
         filter_video=filter_video,
         status=ProcessStatus.CREATED,
+        progress=0,
+        current_activity="Queued",
     )
     db.add(media)
     db.commit()
     db.refresh(media)
 
-    try:
-        media.status = ProcessStatus.PROCESSING
-        db.commit()
-
-        result = process_media(
-            input_path=upload_path,
-            input_type=input_type,
-            output_dir=OUTPUTS_DIR,
-            filter_audio=filter_audio,
-            filter_video=filter_video,
-        )
-
-        media.output_path = result["output_path"]
-        media.status = ProcessStatus.DONE
-        db.commit()
-
-        for seg in result.get("segments", []):
-            db.add(CensorSegment(
-                media_id=media.id,
-                start_ms=int(seg["start_ms"]),
-                end_ms=int(seg["end_ms"]),
-                action_type=str(seg.get("action_type") or "mute"),
-                reason=str(seg.get("reason") or ""),
-            ))
-
-        db.commit()
-        db.refresh(media)
-
-    except Exception as exc:
-        db.rollback()
-        media.status = ProcessStatus.FAILED
-        media.error_message = str(exc)
-        db.commit()
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    background_tasks.add_task(run_pipeline_background, media.id, db)
 
     return _to_response(media)
 

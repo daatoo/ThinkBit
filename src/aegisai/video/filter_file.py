@@ -18,18 +18,18 @@ Interval = Tuple[float, float]
 # ─────────────────────────────────────────────────────────
 # Configuration for improved detection
 # ─────────────────────────────────────────────────────────
-DEFAULT_SAMPLE_FPS = 8.0           # Higher sampling for better temporal coverage
+DEFAULT_SAMPLE_FPS = 2.0           # 2 FPS sampling mainly (0.5s granularity)
 MIN_DETECTION_CONFIDENCE = 0.08   # Low threshold to catch more objects
 MERGE_INTERVAL_GAP = 0.5          # Merge intervals within 0.5s of each other
 
 
-def _blur_intervals_in_video(
+def blur_intervals_in_video(
     video_path: str,
     intervals: List[Interval],
     output_video_path: str,
 ) -> None:
     """
-    Apply a simple full-frame blur on all given time intervals.
+    Apply a mild full-frame blur on all given time intervals.
 
     When time t is in any [start, end], the whole frame is blurred.
     Audio is left unchanged.
@@ -46,12 +46,8 @@ def _blur_intervals_in_video(
     enable_exprs = [f"between(t,{s:.3f},{e:.3f})" for (s, e) in intervals]
     enable_all = " + ".join(enable_exprs)  # OR in ffmpeg expression
 
-    vf = (
-        "[0:v]split=2[main][tmp];"
-        "[tmp]crop=w=iw/2:h=ih/2:x=iw/4:y=ih/4,"
-        "boxblur=luma_radius=25:luma_power=3:enable='{enable}'[blurred];"
-        "[main][blurred]overlay=x=W/4:y=H/4:enable='{enable}'"
-    ).format(enable=enable_all)
+    # Mild blur: boxblur with radius 10 (was 25+ pixelation)
+    vf = f"boxblur=luma_radius=10:luma_power=2:enable='{enable_all}'"
 
     cmd = [
         "ffmpeg",
@@ -209,8 +205,9 @@ def filter_video_file(
         print(f"[filter_video_file] Merged unsafe intervals: {merged}")
 
         # ─────────────────────────────────────────────────────────
-        # Step 4: Run object localization for all frames
+        # Step 4: Run object localization for all frames (Optional/Logging only)
         # ─────────────────────────────────────────────────────────
+        # We keep this for logging metadata, but we don't need it for blurring anymore.
         per_frame_boxes: List[Dict[str, Any]] = []
         
         def _localize_one(frame_path: str, ts: float) -> Dict[str, Any]:
@@ -236,6 +233,13 @@ def filter_video_file(
             
             return None
 
+        # Optimization: Only run localization if strictly needed for metadata
+        # Since the user asked for "speed", we could skip this part if it's not needed for the UI.
+        # However, the UI likely expects "segments" with reasons.
+        # "remove the logic that crops the identified objects and just send the picture straight away"
+        # Implicitly, we still need to know WHICH frames are bad to "send the picture" (metadata).
+        # So we keep localization for reporting, but not for blur.
+        
         print("[filter_video_file] Running object localization...")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -263,6 +267,16 @@ def filter_video_file(
         
         print(f"[filter_video_file] Total object detections: {total_objects}")
         print(f"[filter_video_file] Detection reasons: {reasons_count}")
+
+        # ─────────────────────────────────────────────────────────
+        # Step 5: Render final video with full-screen blur
+        # ─────────────────────────────────────────────────────────
+        if output_path:
+            blur_intervals_in_video(
+                video_path=input_path,
+                intervals=merged,
+                output_video_path=output_path,
+            )
 
         return {
             "intervals": merged,

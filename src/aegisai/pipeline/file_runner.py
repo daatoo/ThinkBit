@@ -8,13 +8,13 @@ from typing import Any, Optional, List, Tuple, Dict
 
 from src.aegisai.pipeline.config import PipelineConfig
 from src.aegisai.audio.filter_file import filter_audio_file
-from src.aegisai.video.filter_file import filter_video_file
+from src.aegisai.video.filter_file import filter_video_file, blur_intervals_in_video
 from src.aegisai.video.ffmpeg_edit import mute_intervals_in_video
 from src.aegisai.video.segment import extract_audio_track
 
 Interval = Tuple[float, float]
 
-from src.aegisai.video.region_blur import blur_moving_objects_with_intervals
+# from src.aegisai.video.region_blur import blur_moving_objects_with_intervals
 
 # -------------------------------------------------------------------
 # Helpers
@@ -187,17 +187,10 @@ def run_file_job(
         print("Video intervals to blur:", video_intervals)
         if video_intervals:
             _ensure_parent_dir(output_path)
-            blur_moving_objects_with_intervals(
+            blur_intervals_in_video(
                 video_path=input_path,
                 intervals=video_intervals,
-                object_boxes=video_result.get("object_boxes", []),
-                sample_fps=float(video_result.get("sample_fps", 8.0)),
                 output_video_path=output_path,
-                blur_ksize=65,           # Strong blur
-                expand_boxes=True,       # Expand boxes for better coverage
-                interpolate_boxes=True,  # Smooth interpolation between frames
-                use_tracking=True,       # Enable object tracking
-                expansion_ratio=0.25,    # 25% expansion on each side
             )
         else:
             _copy_if_needed(input_path, output_path)
@@ -237,17 +230,10 @@ def run_file_job(
 
             if video_intervals:
                 working_video = os.path.join(tmpdir, "video_blurred.mp4")
-                blur_moving_objects_with_intervals(
+                blur_intervals_in_video(
                     video_path=input_path,
                     intervals=video_intervals,
-                    object_boxes=object_boxes,
-                    sample_fps=sample_fps,
                     output_video_path=working_video,
-                    blur_ksize=65,           # Strong blur
-                    expand_boxes=True,       # Expand boxes for better coverage
-                    interpolate_boxes=True,  # Smooth interpolation between frames
-                    use_tracking=True,       # Enable object tracking
-                    expansion_ratio=0.25,    # 25% expansion on each side
                 )
 
             if audio_intervals:
