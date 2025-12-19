@@ -46,7 +46,6 @@ def analyze_safesearch(image_path: str) -> SafeSearchResult:
 
 
 from src.aegisai.vision.label_detection import analyze_labels
-from src.aegisai.vision.object_localization import detect_offensive_regions
 from src.aegisai.vision.vision_rules import (
     classify_safesearch,
     classify_labels,
@@ -77,7 +76,7 @@ def analyze_frame_moderation(
     #print(f"[analyze_frame_moderation] Labels info: {labels_info} for {image_path}")
 
     # 3) Offensive regions (if any)
-    regions = detect_offensive_regions(image_path, key_path=key_path)
+    # regions = detect_offensive_regions(image_path, key_path=key_path)
 
     # 4) Combine into one frame-level decision (with regions)
-    return combine_frame_decision(timestamp, ss_info, labels_info, regions=regions)
+    return combine_frame_decision(timestamp, ss_info, labels_info, regions=[])

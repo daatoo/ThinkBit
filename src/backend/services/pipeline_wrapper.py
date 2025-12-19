@@ -19,7 +19,7 @@ def _ensure_pipeline_imports():
     global VIDEO_FILE_VIDEO_ONLY, VIDEO_FILE_AUDIO_VIDEO, PipelineConfig
 
     if run_job is None:
-        from src.aegisai.pipeline.runner import run_job as _run_job
+        from src.aegisai.pipeline.file_runner import run_job as _run_job
         from src.aegisai.pipeline.use_cases import (
             AUDIO_FILE_FILTER as _AUDIO_FILE_FILTER,
             VIDEO_FILE_AUDIO_ONLY as _VIDEO_FILE_AUDIO_ONLY,
