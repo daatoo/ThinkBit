@@ -72,9 +72,9 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
 
   const handleProcess = useCallback(async () => {
     if (isStream) {
-       // Stream logic placeholder
-       toast.error("Streaming not implemented yet");
-       return;
+      // Stream logic placeholder
+      toast.error("Streaming not implemented yet");
+      return;
     }
     if (!selectedFile) return;
 
@@ -92,36 +92,69 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
     let filterVideo = false;
 
     if (filterMode?.type === "video") {
-        if (filterMode.label.includes("Clean Audio Only")) {
-            filterAudio = true;
-            filterVideo = false;
-        } else if (filterMode.label.includes("Clean Video Only")) {
-            filterAudio = false;
-            filterVideo = true;
-        } else {
-            // Full Filter or default
-            filterAudio = true;
-            filterVideo = true;
-        }
-    } else if (filterMode?.type === "audio") {
+      if (filterMode.label.includes("Clean Audio Only")) {
         filterAudio = true;
         filterVideo = false;
+      } else if (filterMode.label.includes("Clean Video Only")) {
+        filterAudio = false;
+        filterVideo = true;
+      } else {
+        // Full Filter or default
+        filterAudio = true;
+        filterVideo = true;
+      }
+    } else if (filterMode?.type === "audio") {
+      filterAudio = true;
+      filterVideo = false;
     }
 
     try {
-      const result = await uploadFile(selectedFile, filterAudio, filterVideo);
-      setProcessedMedia(result);
-      setDialogState("preview");
-      toast.success("Processing complete!");
-    } catch (error) {
+      // 1. Upload initial file
+      let media = await uploadFile(selectedFile, filterAudio, filterVideo);
+      setProcessedMedia(media);
+
+      // 2. Poll for status
+      const pollInterval = setInterval(async () => {
+        try {
+          media = await uploadFile(selectedFile, filterAudio, filterVideo); // Re-upload? NO!
+          // We need getMedia(id)
+        } catch (e) {
+          // ...
+        }
+      }, 1000);
+
+      // Wait, let's restructure this to be cleaner with a while loop
+
+      while (true) {
+        if (media.status === "done") {
+          setProcessedMedia(media);
+          setDialogState("preview");
+          toast.success("Processing complete!");
+          break;
+        } else if (media.status === "failed") {
+          setProcessedMedia(media);
+          setDialogState("upload"); // Or error state?
+          toast.error(`Processing failed: ${media.error_message}`);
+          break;
+        }
+
+        // Wait one second
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Fetch update
+        // CHECK: import getMedia
+        const updated = await import("@/lib/api").then(m => m.getMedia(media.id));
+        setProcessedMedia(updated);
+        media = updated;
+      }
+
+    } catch (error: any) {
       console.error(error);
       setDialogState("upload");
-      toast.error("Processing failed. Please try again.");
+      toast.error(error.message || "Processing failed. Please try again.");
     }
-  }, [selectedFile, isStream]);
+  }, [selectedFile, isStream, filterMode]);
 
-  // Removed handleProcessingComplete as it's no longer used by ProcessingState
-  // ProcessingState is now just a visual indicator controlled by dialogState
 
   const handleReset = useCallback(() => {
     setSelectedFile(null);
@@ -139,7 +172,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
       <DialogContent className={cn("bg-card border-primary/20 overflow-hidden transition-all duration-300", getDialogSize())}>
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-        
+
         {dialogState === "upload" && (
           <>
             <DialogHeader className="relative">
@@ -298,7 +331,8 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
         {dialogState === "processing" && (
           <ProcessingState
             fileName={selectedFile?.name || "Stream"}
-            onComplete={() => {}} // No-op, controlled by async/await
+            progress={processedMedia?.progress || 0}
+            currentActivity={processedMedia?.current_activity || "Initializing..."}
           />
         )}
 

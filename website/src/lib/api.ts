@@ -1,4 +1,5 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+// export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+export const API_BASE_URL = "http://localhost:8080";
 
 export interface Segment {
   id: number;
@@ -15,11 +16,17 @@ export interface MediaResponse {
   input_type: string;
   filter_audio: boolean;
   filter_video: boolean;
-  status: string;
+  status: "created" | "processing" | "done" | "failed";
+  progress: number;
+  current_activity: string;
   error_message?: string;
   created_at: string;
   updated_at: string;
   segments: Segment[];
+}
+
+export interface MessageResponse {
+  message: string;
 }
 
 export async function uploadFile(
@@ -48,6 +55,49 @@ export async function uploadFile(
   return response.json();
 }
 
+export async function getMedia(mediaId: number): Promise<MediaResponse> {
+  const response = await fetch(`${API_BASE_URL}/media/${mediaId}`);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Media not found");
+    }
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch media: ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteMedia(mediaId: number): Promise<MessageResponse> {
+  const response = await fetch(`${API_BASE_URL}/media/${mediaId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to delete media: ${errorText}`);
+  }
+
+  return response.json();
+}
+
 export function getDownloadUrl(mediaId: number): string {
   return `${API_BASE_URL}/download/${mediaId}`;
+}
+
+export async function listMedia(status?: string): Promise<MediaResponse[]> {
+  const url = status
+    ? `${API_BASE_URL}/media?status=${status}`
+    : `${API_BASE_URL}/media`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to list media: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data.items;
 }
