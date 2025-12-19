@@ -22,6 +22,13 @@ export interface MediaResponse {
   segments: Segment[];
 }
 
+export interface MediaListResponse {
+  total: number;
+  skip: number;
+  limit: number;
+  items: MediaResponse[];
+}
+
 export async function uploadFile(
   file: File,
   filterAudio: boolean = true,
@@ -46,6 +53,29 @@ export async function uploadFile(
   }
 
   return response.json();
+}
+
+export async function listMedia(status?: string): Promise<MediaResponse[]> {
+  let url = `${API_BASE_URL}/media`;
+  if (status) {
+    url += `?status=${status}`;
+  }
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error("Failed to fetch media list");
+  }
+  const data: MediaListResponse = await response.json();
+  return data.items;
+}
+
+export async function deleteMedia(mediaId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/media/${mediaId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete media");
+  }
 }
 
 export function getDownloadUrl(mediaId: number): string {
