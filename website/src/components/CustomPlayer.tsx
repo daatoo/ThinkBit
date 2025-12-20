@@ -277,7 +277,10 @@ const CustomPlayer = ({
                         step="0.05"
                         value={isMuted ? 0 : volume}
                         onChange={handleVolumeChange}
-                        className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-lg appearance-none cursor-pointer shadow-[0_0_10px_theme(colors.primary.DEFAULT)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_5px_rgba(255,255,255,0.8)]"
+                        style={{
+                            background: `linear-gradient(to right, #6366f1, #a855f7, #ec4899) 0/${isMuted ? 0 : volume * 100}% 100% no-repeat, rgba(255, 255, 255, 0.1)`
+                        }}
+                        className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-3 rounded-lg appearance-none cursor-pointer shadow-[0_0_10px_theme(colors.primary.DEFAULT)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_5px_rgba(255,255,255,0.8)]"
                     />
                 </div>
 
