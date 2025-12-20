@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 import sys
@@ -23,7 +23,33 @@ from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now
 from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, RawFileResponse, SegmentResponse, StatsResponse
 from .services.pipeline_wrapper import process_media
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging explicitly to ensure FileHandler is attached even if Uvicorn configures the root logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Check if FileHandler already exists to avoid duplicates on reload
+has_file_handler = any(isinstance(h, logging.FileHandler) and h.baseFilename.endswith("backend.log") for h in logger.handlers)
+
+if not has_file_handler:
+    file_handler = logging.FileHandler("backend.log", mode='w')
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(file_handler)
+
+    # Also attach to uvicorn loggers to capture server logs
+    for log_name in ["uvicorn", "uvicorn.error", "uvicorn.access"]:
+        uvicorn_logger = logging.getLogger(log_name)
+        uvicorn_logger.addHandler(file_handler)
+
+# Force root logger to propagate if it was disabled
+logger.propagate = True
+logger.info("Logging configured.")
+
+# Ensure we also output to console (Uvicorn usually does this, but good to be safe)
+if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(stream_handler)
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -247,6 +273,20 @@ def get_output_file(filename: str):
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path=file_path)
+
+
+@app.get("/debug/logs", response_class=PlainTextResponse)
+def get_logs():
+    log_path = Path("backend.log")
+    if not log_path.exists():
+        return ""
+    try:
+        # Read file content directly to avoid Content-Length mismatch issues with FileResponse on active log files
+        with open(log_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        return f"Error reading logs: {str(e)}"
 
 
 def run_pipeline_background(media_id: int, db: Session):
