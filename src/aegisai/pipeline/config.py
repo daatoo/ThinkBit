@@ -17,6 +17,7 @@ class PipelineConfig:
     mode: str                # "file" | "stream"
     filter_audio: bool
     filter_video: bool
+    subtitle_path: str | None = None
 
     def validate(self) -> None:
         """

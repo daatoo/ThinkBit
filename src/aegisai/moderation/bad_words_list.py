@@ -9,7 +9,9 @@ import re
 from typing import Iterable, List, Sequence
 
 BAD_WORDS = {
+    # test words
     "today", "english", "word", "everybody", "hey", "speaking",
+    "crucified", "saviour", "holy", "dimension",
 
     # Core profanity
     "fuck", "fucking", "motherfucker", "motherfuckers", "mf", "mfing",

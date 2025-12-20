@@ -8,13 +8,13 @@ from typing import Any, Optional, List, Tuple, Dict
 
 from src.aegisai.pipeline.config import PipelineConfig
 from src.aegisai.audio.filter_file import filter_audio_file
-from src.aegisai.video.filter_file import filter_video_file
+from src.aegisai.video.filter_file import filter_video_file, blur_intervals_in_video
 from src.aegisai.video.ffmpeg_edit import mute_intervals_in_video
 from src.aegisai.video.segment import extract_audio_track
 
 Interval = Tuple[float, float]
 
-from src.aegisai.video.region_blur import blur_moving_objects_with_intervals
+# from src.aegisai.video.region_blur import blur_moving_objects_with_intervals
 
 # -------------------------------------------------------------------
 # Helpers
@@ -75,6 +75,7 @@ def _analyze_audio_from_video(
     video_path: str,
     tmpdir: str,
     chunk_seconds: int,
+    subtitle_path: str | None = None,
 ) -> List[Interval]:
     """
     Extract audio from `video_path` into `tmpdir` and run audio moderation.
@@ -87,6 +88,7 @@ def _analyze_audio_from_video(
         audio_path=tmp_audio,
         output_audio_path=None,        # analysis-only
         chunk_seconds=chunk_seconds,
+        subtitle_path=subtitle_path,
     )
     return _normalize_interval_list(audio_result)
 
@@ -99,6 +101,7 @@ def run_file_job(
     cfg: PipelineConfig,
     input_path: str,
     output_path: str,
+    progress_callback: Optional[callable] = None,
 ) -> Dict[str, Any]:
     """
     Run a **file-based** moderation job (audio or video).
@@ -124,6 +127,12 @@ def run_file_job(
     # Allow config to override chunk size; fallback to 5 seconds.
     audio_chunk_seconds = int(getattr(cfg, "audio_chunk_seconds", 5))
 
+    # Retrieve subtitle_path from config
+    subtitle_path = getattr(cfg, "subtitle_path", None)
+
+    if progress_callback:
+        progress_callback(1, f"Starting {media_type} pipeline")
+
     # ---------------------------------------------------------------
     # AUDIO FILE CASE
     # ---------------------------------------------------------------
@@ -137,6 +146,8 @@ def run_file_job(
             audio_path=input_path,
             output_audio_path=output_path,
             chunk_seconds=audio_chunk_seconds,
+            progress_callback=progress_callback,
+            subtitle_path=subtitle_path,
         )
         audio_intervals = _normalize_interval_list(intervals)
 
@@ -162,6 +173,7 @@ def run_file_job(
                 video_path=input_path,
                 tmpdir=tmpdir,
                 chunk_seconds=audio_chunk_seconds,
+                subtitle_path=subtitle_path,
             )
 
         if audio_intervals:
@@ -182,22 +194,19 @@ def run_file_job(
         }
 
     if filter_video_flag and not filter_audio_flag:
-        video_result = filter_video_file(input_path, output_path=None)
+        video_result = filter_video_file(
+            input_path, 
+            output_path=None, 
+            progress_callback=progress_callback
+        )
         video_intervals = _normalize_interval_list(video_result)
         print("Video intervals to blur:", video_intervals)
         if video_intervals:
             _ensure_parent_dir(output_path)
-            blur_moving_objects_with_intervals(
+            blur_intervals_in_video(
                 video_path=input_path,
                 intervals=video_intervals,
-                object_boxes=video_result.get("object_boxes", []),
-                sample_fps=float(video_result.get("sample_fps", 8.0)),
                 output_video_path=output_path,
-                blur_ksize=65,           # Strong blur
-                expand_boxes=True,       # Expand boxes for better coverage
-                interpolate_boxes=True,  # Smooth interpolation between frames
-                use_tracking=True,       # Enable object tracking
-                expansion_ratio=0.25,    # 25% expansion on each side
             )
         else:
             _copy_if_needed(input_path, output_path)
@@ -217,10 +226,15 @@ def run_file_job(
                     video_path=input_path,
                     tmpdir=tmpdir,
                     chunk_seconds=audio_chunk_seconds,
+                    subtitle_path=subtitle_path,
                 )
 
             def video_job() -> Dict[str, Any]:
-                return filter_video_file(input_path, output_path=None)
+                return filter_video_file(
+                    input_path, 
+                    output_path=None, 
+                    progress_callback=progress_callback
+                )
 
             # Run audio + video analysis in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -237,17 +251,10 @@ def run_file_job(
 
             if video_intervals:
                 working_video = os.path.join(tmpdir, "video_blurred.mp4")
-                blur_moving_objects_with_intervals(
+                blur_intervals_in_video(
                     video_path=input_path,
                     intervals=video_intervals,
-                    object_boxes=object_boxes,
-                    sample_fps=sample_fps,
                     output_video_path=working_video,
-                    blur_ksize=65,           # Strong blur
-                    expand_boxes=True,       # Expand boxes for better coverage
-                    interpolate_boxes=True,  # Smooth interpolation between frames
-                    use_tracking=True,       # Enable object tracking
-                    expansion_ratio=0.25,    # 25% expansion on each side
                 )
 
             if audio_intervals:
@@ -274,6 +281,7 @@ def run_job(
     cfg: PipelineConfig,
     input_path_or_stream: Any,
     output_path: Optional[str] = None,
+    progress_callback: Optional[callable] = None,
 ) -> Dict[str, Any]:
     """
     Convenience wrapper that only supports **file** mode in this module.
@@ -288,4 +296,4 @@ def run_job(
     if output_path is None:
         raise ValueError("For file pipelines, output_path is required.")
 
-    return run_file_job(cfg, input_path_or_stream, output_path)
+    return run_file_job(cfg, input_path_or_stream, output_path, progress_callback)

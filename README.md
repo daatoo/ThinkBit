@@ -1,4 +1,5 @@
 # AegisAI
+<img width="2048" height="2048" alt="Gemini_Generated_Image_hkjcdshkjcdshkjc" src="https://github.com/user-attachments/assets/92b6c676-9cd8-4aa3-9576-48dfc62174f7" />
 
 ## Problem Statement
 Manually censoring inappropriate content in video and audio for different audiences is a time-consuming, costly, and inconsistent process. Parents lack effective, customizable tools to filter content for their children in real-time, while television studios and content creators face significant overhead in producing multiple versions of content for various broadcasting standards. An AI-powered system is required to automatically detect and censor user-defined improper content (e.g., profanity, graphic violence) in video streams, providing a reliable, efficient, and customizable solution.
@@ -53,6 +54,17 @@ AI is used to achieve the efficiency, speed, and customization that manual censo
 ## Setup
 See [`docs/setup.md`](./docs/setup.md)
 
+### Quick Start
+To set up the environment and run both backend and frontend:
+```bash
+./start_app.sh
+```
+This script will:
+- Check for `ffmpeg`
+- Create a python virtual environment and install dependencies
+- Start the backend server
+- Install frontend dependencies and start the frontend development server
+
 ## Frontend
 - https://github.com/NW0RK/safestream-ui
 - https://prototype-aegis-ai.lovable.app
@@ -61,4 +73,10 @@ See [`docs/setup.md`](./docs/setup.md)
 <img width="320px" alt="AEGIS st george" src="https://github.com/user-attachments/assets/138c781f-cd42-41ee-8634-bd18bd0f5aab" />
 <img width="320px" alt="King witnessing the revelation" src="https://github.com/user-attachments/assets/5e5a0c84-9f56-4cce-a8df-a0c1df54d0b1" />
 <img width="320px" alt="Pirosmani Aegis" src="https://github.com/user-attachments/assets/a5bbd66b-638a-4442-a6b6-3cde6b2c4204" />
+<img width="320px" alt="Gemini_Generated_Image_bl6nxqbl6nxqbl6n" src="https://github.com/user-attachments/assets/35f60afa-4d1a-40fe-92ac-31c8ae1ef9a5" />
+<img width="320px" alt="Gemini_Generated_Image_bl6nxqbl6nxqbl6n" src="https://github.com/user-attachments/assets/e6d641b4-4bde-49b0-a134-1c16bff21be1" />
+<img width="320px" alt="Gemini_Generated_Image_bl6nxqbl6nxqbl6n" src="https://github.com/user-attachments/assets/946bced7-7fac-4883-8329-6569e0eda6b1" />
+
+
+
 

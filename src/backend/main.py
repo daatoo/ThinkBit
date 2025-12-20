@@ -3,21 +3,53 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
+import sys
+
+# Force UTF-8 encoding for stdout/stderr on Windows to avoid charmap errors
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 from .db import get_db, init_db
-from .models import CensorSegment, ProcessStatus, ProcessedMedia
-from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, SegmentResponse, StatsResponse
+from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now
+from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, RawFileResponse, SegmentResponse, StatsResponse
 from .services.pipeline_wrapper import process_media
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging explicitly to ensure FileHandler is attached even if Uvicorn configures the root logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Check if FileHandler already exists to avoid duplicates on reload
+has_file_handler = any(isinstance(h, logging.FileHandler) and h.baseFilename.endswith("backend.log") for h in logger.handlers)
+
+if not has_file_handler:
+    file_handler = logging.FileHandler("backend.log", mode='w')
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(file_handler)
+
+    # Also attach to uvicorn loggers to capture server logs
+    for log_name in ["uvicorn", "uvicorn.error", "uvicorn.access"]:
+        uvicorn_logger = logging.getLogger(log_name)
+        uvicorn_logger.addHandler(file_handler)
+
+# Force root logger to propagate if it was disabled
+logger.propagate = True
+logger.info("Logging configured.")
+
+# Ensure we also output to console (Uvicorn usually does this, but good to be safe)
+if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(stream_handler)
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -25,9 +57,10 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 OUTPUTS_DIR = BASE_DIR / "outputs"
 
 MAX_FILE_SIZE = 500 * 1024 * 1024
-ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".wav", ".mp3", ".flac", ".m4a"}
+ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".wav", ".mp3", ".flac", ".m4a", ".webm"}
 ALLOWED_MIMETYPES = {"video/mp4", "video/quicktime", "video/x-matroska", "video/x-msvideo", 
-                     "audio/wav", "audio/mpeg", "audio/flac", "audio/x-m4a", "audio/mp4"}
+                     "audio/wav", "audio/mpeg", "audio/flac", "audio/x-m4a", "audio/mp4",
+                     "video/webm", "audio/webm"}
 
 
 def _ensure_directories():
@@ -39,7 +72,7 @@ def _detect_input_type(path: Path) -> str:
     ext = path.suffix.lower()
     if ext in {".wav", ".mp3", ".flac", ".m4a"}:
         return "audio"
-    if ext in {".mp4", ".mov", ".mkv", ".avi"}:
+    if ext in {".mp4", ".mov", ".mkv", ".avi", ".webm"}:
         return "video"
     return "video"
 
@@ -63,6 +96,9 @@ def _to_response(media: ProcessedMedia) -> MediaResponse:
         filter_audio=media.filter_audio,
         filter_video=media.filter_video,
         status=media.status,
+        progress=media.progress,
+        current_activity=media.current_activity,
+        logs=media.logs.split("\n") if media.logs else [],
         error_message=media.error_message,
         created_at=media.created_at,
         updated_at=media.updated_at,
@@ -159,22 +195,34 @@ def get_media(media_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/download/{media_id}")
-def download_media(media_id: int, db: Session = Depends(get_db)):
+def download_media(
+    media_id: int,
+    variant: str = Query("processed", regex="^(original|processed)$"),
+    db: Session = Depends(get_db)
+):
     media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
 
-    if media.status != ProcessStatus.DONE:
-        raise HTTPException(status_code=400, detail=f"Processing not complete: {media.status}")
+    if variant == "processed":
+        if media.status != ProcessStatus.DONE:
+            raise HTTPException(status_code=400, detail=f"Processing not complete: {media.status}")
 
-    if not media.output_path:
-        raise HTTPException(status_code=404, detail="Output file not found")
+        if not media.output_path:
+            raise HTTPException(status_code=404, detail="Output file not found")
 
-    output_file = Path(media.output_path)
-    if not output_file.exists():
-        raise HTTPException(status_code=404, detail="Output file missing")
+        file_path = Path(media.output_path)
+    else:
+        # Serve original input
+        if not media.input_path:
+            raise HTTPException(status_code=404, detail="Input file record missing")
 
-    return FileResponse(path=output_file, filename=output_file.name, media_type="application/octet-stream")
+        file_path = Path(media.input_path)
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"{variant.capitalize()} file missing on disk")
+
+    return FileResponse(path=file_path, filename=file_path.name, media_type="application/octet-stream")
 
 
 @app.delete("/media/{media_id}", response_model=MessageResponse)
@@ -197,9 +245,160 @@ def delete_media(media_id: int, db: Session = Depends(get_db)):
     return MessageResponse(message="Deleted")
 
 
+@app.get("/outputs/files", response_model=list[RawFileResponse])
+def list_output_files():
+    files = []
+    if OUTPUTS_DIR.exists():
+        for path in OUTPUTS_DIR.iterdir():
+            if path.is_file():
+                # Get modification time
+                stats = path.stat()
+                files.append(
+                    RawFileResponse(
+                        filename=path.name,
+                        modified_at=datetime.fromtimestamp(stats.st_mtime)
+                    )
+                )
+    return files
+
+
+@app.get("/outputs/files/{filename}")
+def get_output_file(filename: str):
+    file_path = OUTPUTS_DIR / filename
+    # Security check: prevent directory traversal
+    if not file_path.resolve().is_relative_to(OUTPUTS_DIR.resolve()):
+         raise HTTPException(status_code=403, detail="Access denied")
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(path=file_path)
+
+@app.delete("/outputs/files/{filename}", response_model=MessageResponse)
+def delete_output_file(filename: str, db: Session = Depends(get_db)):
+    file_path = OUTPUTS_DIR / filename
+    # Security check: prevent directory traversal
+    if not file_path.resolve().is_relative_to(OUTPUTS_DIR.resolve()):
+         raise HTTPException(status_code=403, detail="Access denied")
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Resolve absolute path to match against DB
+    target_path = str(file_path.resolve())
+
+    # Find associated media record
+    media = db.query(ProcessedMedia).filter(ProcessedMedia.output_path == target_path).first()
+
+    if media:
+        input_path = Path(media.input_path) if media.input_path else None
+        output_path = Path(media.output_path) if media.output_path else None
+
+        db.delete(media)
+        db.commit()
+
+        if input_path and input_path.exists():
+            input_path.unlink()
+        if output_path and output_path.exists():
+            output_path.unlink()
+    else:
+        # Just delete the orphan file
+        file_path.unlink()
+
+    return MessageResponse(message="Deleted")
+
+    
+@app.get("/debug/logs", response_class=PlainTextResponse)
+def get_logs():
+    log_path = Path("backend.log")
+    if not log_path.exists():
+        return ""
+    try:
+        # Read file content directly to avoid Content-Length mismatch issues with FileResponse on active log files
+        with open(log_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        return f"Error reading logs: {str(e)}"
+
+
+def run_pipeline_background(media_id: int, db: Session):
+    try:
+        media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+        if not media:
+            return
+
+        media.status = ProcessStatus.PROCESSING
+        media.progress = 0
+        media.current_activity = "Starting..."
+        db.commit()
+
+        def progress_callback(progress: int, activity: str):
+            try:
+                # Re-fetch to avoid stale object? 
+                # Or just update inplace if session is alive.
+                # Just separate transaction might be safer if frequent updates.
+                media.progress = progress
+                media.current_activity = activity
+                
+                # Append to logs
+                timestamp = utc_now().strftime("%H:%M:%S")
+                log_entry = f"[{timestamp}] {activity}"
+                if media.logs:
+                    media.logs = media.logs + "\n" + log_entry
+                else:
+                    media.logs = log_entry
+                    
+                db.commit()
+            except Exception as e:
+                logger.error(f"Error updating progress: {e}")
+
+        subtitle_path = Path(media.subtitle_path) if media.subtitle_path else None
+
+        result = process_media(
+            input_path=Path(media.input_path),
+            input_type=media.input_type,
+            output_dir=OUTPUTS_DIR,
+            filter_audio=media.filter_audio,
+            filter_video=media.filter_video,
+            progress_callback=progress_callback,
+            subtitle_path=subtitle_path,
+        )
+
+        media.output_path = result["output_path"]
+        media.status = ProcessStatus.DONE
+        media.progress = 100
+        media.current_activity = "Completed"
+        db.commit()
+
+        for seg in result.get("segments", []):
+            db.add(CensorSegment(
+                media_id=media.id,
+                start_ms=int(seg["start_ms"]),
+                end_ms=int(seg["end_ms"]),
+                action_type=str(seg.get("action_type") or "mute"),
+                reason=str(seg.get("reason") or ""),
+            ))
+
+        db.commit()
+
+    except Exception as exc:
+        logger.exception("Pipeline failed")
+        try:
+            media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+            if media:
+                media.status = ProcessStatus.FAILED
+                media.error_message = str(exc)
+                db.commit()
+        except:
+            pass
+
+
 @app.post("/process", response_model=MediaResponse)
 async def process_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    subtitle_file: UploadFile = File(None),
     filter_audio: bool = Query(True),
     filter_video: bool = Query(False),
     db: Session = Depends(get_db),
@@ -219,6 +418,27 @@ async def process_file(
         counter += 1
 
     upload_path.write_bytes(content)
+
+    subtitle_path_str = None
+    if subtitle_file and subtitle_file.filename:
+        # Validate extension
+        sub_ext = Path(subtitle_file.filename).suffix.lower()
+        if sub_ext not in {".srt", ".vtt"}:
+             raise HTTPException(status_code=400, detail=f"Invalid subtitle format: {sub_ext}")
+
+        # Save subtitle file
+        sub_content = await subtitle_file.read()
+        sub_name = Path(subtitle_file.filename)
+        sub_path = UPLOADS_DIR / f"{original_name.stem}_{sub_name.name}"
+
+        # Ensure unique name
+        sub_counter = 1
+        while sub_path.exists():
+             sub_path = UPLOADS_DIR / f"{original_name.stem}_{sub_counter}_{sub_name.name}"
+             sub_counter += 1
+
+        sub_path.write_bytes(sub_content)
+        subtitle_path_str = str(sub_path)
 
     input_type = _detect_input_type(upload_path)
     file_hash = _compute_file_hash(upload_path)
@@ -246,50 +466,20 @@ async def process_file(
         file_hash=file_hash,
         filter_audio=filter_audio,
         filter_video=filter_video,
+        subtitle_path=subtitle_path_str,
         status=ProcessStatus.CREATED,
+        progress=0,
+        current_activity="Queued",
     )
     db.add(media)
     db.commit()
     db.refresh(media)
 
-    try:
-        media.status = ProcessStatus.PROCESSING
-        db.commit()
-
-        result = process_media(
-            input_path=upload_path,
-            input_type=input_type,
-            output_dir=OUTPUTS_DIR,
-            filter_audio=filter_audio,
-            filter_video=filter_video,
-        )
-
-        media.output_path = result["output_path"]
-        media.status = ProcessStatus.DONE
-        db.commit()
-
-        for seg in result.get("segments", []):
-            db.add(CensorSegment(
-                media_id=media.id,
-                start_ms=int(seg["start_ms"]),
-                end_ms=int(seg["end_ms"]),
-                action_type=str(seg.get("action_type") or "mute"),
-                reason=str(seg.get("reason") or ""),
-            ))
-
-        db.commit()
-        db.refresh(media)
-
-    except Exception as exc:
-        db.rollback()
-        media.status = ProcessStatus.FAILED
-        media.error_message = str(exc)
-        db.commit()
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    background_tasks.add_task(run_pipeline_background, media.id, db)
 
     return _to_response(media)
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8080")), reload=True)

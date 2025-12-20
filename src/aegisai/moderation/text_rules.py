@@ -37,7 +37,7 @@ def _compute_severity(count: int) -> int:
     return 3
 
 
-def analyze_text(text: str, blocklist: Iterable[str] | None = None) -> TextModerationResult:
+def analyze_text(text: str, blocklist: Iterable[str] | None = None, strict: bool = False) -> TextModerationResult:
     """
     Analyze a single text string (e.g. one chunk of transcript).
     """
@@ -46,7 +46,11 @@ def analyze_text(text: str, blocklist: Iterable[str] | None = None) -> TextModer
     severity = _compute_severity(count)
 
     # For now: block only on strong profanity.
-    block = severity >= 2
+    # If strict is True, block on ANY bad word.
+    if strict:
+        block = count > 0
+    else:
+        block = severity >= 2
 
     return TextModerationResult(
         original_text=text,

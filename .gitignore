@@ -15,7 +15,7 @@ venv/
 ENV/
 
 # IDE
-.vscode/
+
 .idea/
 *.swp
 *.swo
@@ -44,3 +44,8 @@ htmlcov/
 *.temp
 
 aegis-key.json
+aegisai.db
+aegisai.db
+aegisai.db
+*.db
+*.db

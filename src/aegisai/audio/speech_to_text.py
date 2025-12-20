@@ -1,4 +1,5 @@
 from google.cloud import speech
+from src.aegisai.moderation.bad_words_list import BAD_WORDS
 
 
 _CLIENT: speech.SpeechClient | None = None
@@ -22,11 +23,19 @@ def transcribe_audio(file_path: str):
 
     audio = speech.RecognitionAudio(content=audio_bytes)
 
+    # Boost recognition of bad words to improve detection in songs
+    speech_context = speech.SpeechContext(
+        phrases=list(BAD_WORDS),
+        boost=20.0
+    )
+
     config = speech.RecognitionConfig(
         language_code="en-US",
+        model="video",
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=16000,
         enable_word_time_offsets=True,
+        speech_contexts=[speech_context],
     )
 
     response = client.recognize(config=config, audio=audio)

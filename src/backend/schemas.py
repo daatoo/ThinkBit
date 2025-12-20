@@ -22,7 +22,11 @@ class MediaResponse(BaseModel):
     input_type: str
     filter_audio: bool
     filter_video: bool
+    subtitle_path: Optional[str] = None
     status: str
+    progress: int = 0
+    current_activity: Optional[str] = None
+    logs: Optional[list[str]] = None
     error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -44,6 +48,11 @@ class StatsResponse(BaseModel):
     total_segments: int
     by_status: dict[str, int]
     by_type: dict[str, int]
+
+
+class RawFileResponse(BaseModel):
+    filename: str
+    modified_at: datetime
 
 
 class HealthResponse(BaseModel):

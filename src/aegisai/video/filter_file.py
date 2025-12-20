@@ -18,18 +18,18 @@ Interval = Tuple[float, float]
 # ─────────────────────────────────────────────────────────
 # Configuration for improved detection
 # ─────────────────────────────────────────────────────────
-DEFAULT_SAMPLE_FPS = 8.0           # Higher sampling for better temporal coverage
+DEFAULT_SAMPLE_FPS = 2.0           # 2 FPS sampling mainly (0.5s granularity)
 MIN_DETECTION_CONFIDENCE = 0.08   # Low threshold to catch more objects
 MERGE_INTERVAL_GAP = 0.5          # Merge intervals within 0.5s of each other
 
 
-def _blur_intervals_in_video(
+def blur_intervals_in_video(
     video_path: str,
     intervals: List[Interval],
     output_video_path: str,
 ) -> None:
     """
-    Apply a simple full-frame blur on all given time intervals.
+    Apply a mild full-frame blur on all given time intervals.
 
     When time t is in any [start, end], the whole frame is blurred.
     Audio is left unchanged.
@@ -46,13 +46,12 @@ def _blur_intervals_in_video(
     enable_exprs = [f"between(t,{s:.3f},{e:.3f})" for (s, e) in intervals]
     enable_all = " + ".join(enable_exprs)  # OR in ffmpeg expression
 
-    vf = (
-        "[0:v]split=2[main][tmp];"
-        "[tmp]crop=w=iw/2:h=ih/2:x=iw/4:y=ih/4,"
-        "boxblur=luma_radius=25:luma_power=3:enable='{enable}'[blurred];"
-        "[main][blurred]overlay=x=W/4:y=H/4:enable='{enable}'"
-    ).format(enable=enable_all)
+    # Mild blur: boxblur with radius 10 (was 25+ pixelation)
+    vf = f"boxblur=luma_radius=10:luma_power=2:enable='{enable_all}'"
 
+    # Determine flags based on output extension
+    is_webm = output_video_path.lower().endswith(".webm")
+    
     cmd = [
         "ffmpeg",
         "-y",
@@ -62,10 +61,16 @@ def _blur_intervals_in_video(
         vf,
         "-c:a",
         "copy",
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-        output_video_path,
     ]
+
+    if is_webm:
+        # VP9 settings for speed (similar to ultrafast)
+        cmd += ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8"]
+    else:
+        # x264 settings
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"]
+
+    cmd.append(output_video_path)
     subprocess.run(cmd, check=True)
 
 
@@ -99,6 +104,7 @@ def filter_video_file(
     sample_fps: float = DEFAULT_SAMPLE_FPS,
     max_workers: int | None = None,
     extend_intervals: bool = True,
+    progress_callback: Optional[callable] = None,
 ) -> Dict[str, Any]:
     """
     VIDEO moderation on a file with improved detection accuracy.
@@ -127,11 +133,16 @@ def filter_video_file(
         # ─────────────────────────────────────────────────────────
         # Step 1: Sample frames from the video file
         # ─────────────────────────────────────────────────────────
+        if progress_callback:
+            progress_callback(5, "Extracting frames...")
+        
         frames = extract_sampled_frames_from_file(
             video_path=input_path,
             output_dir=tmpdir,
             fps=sample_fps,
         )
+        if progress_callback:
+            progress_callback(10, f"Extracted {len(frames)} frames")
         print(f"[filter_video_file] Extracted {len(frames)} frames at {sample_fps} FPS")
 
         if not frames:
@@ -148,6 +159,8 @@ def filter_video_file(
             max_workers = min(24, len(frames))
 
         print(f"[filter_video_file] Analyzing frames with {max_workers} worker threads...")
+        if progress_callback:
+            progress_callback(15, "Starting SafeSearch analysis...")
 
         # ─────────────────────────────────────────────────────────
         # Step 2: Run frame moderation (SafeSearch + labels)
@@ -159,6 +172,8 @@ def filter_video_file(
                 return analyze_frame_moderation(frame_path, timestamp=ts)
             except Exception as e:
                 print(f"[filter_video_file] Error moderating frame at {ts:.2f}s: {e}")
+                import logging
+                logging.getLogger(__name__).error(f"Error moderating frame at {ts:.2f}s: {e}")
                 # Return a "safe" result on error
                 from src.aegisai.vision.vision_rules import FrameModerationResult
                 return FrameModerationResult(
@@ -176,10 +191,20 @@ def filter_video_file(
             
             # Collect results in order
             frame_results_map = {}
+            total_frames = len(frames)
+            completed_count = 0
+            
             for fut in as_completed(futures):
                 frame_path, ts = futures[fut]
                 result = fut.result()
                 frame_results_map[round(ts, 3)] = result
+                completed_count += 1
+                
+                # Report progress every 10 frames or so to not spam DB
+                if progress_callback and (completed_count % 10 == 0 or completed_count == total_frames):
+                     # Scale 15% -> 60%
+                    pct = 15 + int((completed_count / total_frames) * 45)
+                    progress_callback(pct, f"Analyzing frame {completed_count}/{total_frames}")
             
             # Sort by timestamp
             for (frame_path, ts) in frames:
@@ -209,8 +234,9 @@ def filter_video_file(
         print(f"[filter_video_file] Merged unsafe intervals: {merged}")
 
         # ─────────────────────────────────────────────────────────
-        # Step 4: Run object localization for all frames
+        # Step 4: Run object localization for all frames (Optional/Logging only)
         # ─────────────────────────────────────────────────────────
+        # We keep this for logging metadata, but we don't need it for blurring anymore.
         per_frame_boxes: List[Dict[str, Any]] = []
         
         def _localize_one(frame_path: str, ts: float) -> Dict[str, Any]:
@@ -236,7 +262,16 @@ def filter_video_file(
             
             return None
 
+        # Optimization: Only run localization if strictly needed for metadata
+        # Since the user asked for "speed", we could skip this part if it's not needed for the UI.
+        # However, the UI likely expects "segments" with reasons.
+        # "remove the logic that crops the identified objects and just send the picture straight away"
+        # Implicitly, we still need to know WHICH frames are bad to "send the picture" (metadata).
+        # So we keep localization for reporting, but not for blur.
+        
         print("[filter_video_file] Running object localization...")
+        if progress_callback:
+            progress_callback(60, "Running object localization...")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -244,10 +279,19 @@ def filter_video_file(
                 for (frame_path, ts) in frames
             }
             
+            total_loc = len(frames)
+            completed_loc = 0
+
             for fut in as_completed(futures):
                 result = fut.result()
                 if result:
                     per_frame_boxes.append(result)
+                
+                completed_loc += 1
+                if progress_callback and (completed_loc % 20 == 0 or completed_loc == total_loc):
+                     # Scale 60% -> 80%
+                    pct = 60 + int((completed_loc / total_loc) * 20)
+                    progress_callback(pct, f"Localizing objects {completed_loc}/{total_loc}")
 
         # Sort by timestamp
         per_frame_boxes.sort(key=lambda x: x["timestamp"])
@@ -263,6 +307,18 @@ def filter_video_file(
         
         print(f"[filter_video_file] Total object detections: {total_objects}")
         print(f"[filter_video_file] Detection reasons: {reasons_count}")
+
+        # ─────────────────────────────────────────────────────────
+        # Step 5: Render final video with full-screen blur
+        # ─────────────────────────────────────────────────────────
+        if output_path:
+            if progress_callback:
+                progress_callback(85, "Rendering final video...")
+            blur_intervals_in_video(
+                video_path=input_path,
+                intervals=merged,
+                output_video_path=output_path,
+            )
 
         return {
             "intervals": merged,
