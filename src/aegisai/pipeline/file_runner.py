@@ -75,6 +75,7 @@ def _analyze_audio_from_video(
     video_path: str,
     tmpdir: str,
     chunk_seconds: int,
+    subtitle_path: str | None = None,
 ) -> List[Interval]:
     """
     Extract audio from `video_path` into `tmpdir` and run audio moderation.
@@ -87,6 +88,7 @@ def _analyze_audio_from_video(
         audio_path=tmp_audio,
         output_audio_path=None,        # analysis-only
         chunk_seconds=chunk_seconds,
+        subtitle_path=subtitle_path,
     )
     return _normalize_interval_list(audio_result)
 
@@ -125,6 +127,9 @@ def run_file_job(
     # Allow config to override chunk size; fallback to 5 seconds.
     audio_chunk_seconds = int(getattr(cfg, "audio_chunk_seconds", 5))
 
+    # Retrieve subtitle_path from config
+    subtitle_path = getattr(cfg, "subtitle_path", None)
+
     if progress_callback:
         progress_callback(1, f"Starting {media_type} pipeline")
 
@@ -142,6 +147,7 @@ def run_file_job(
             output_audio_path=output_path,
             chunk_seconds=audio_chunk_seconds,
             progress_callback=progress_callback,
+            subtitle_path=subtitle_path,
         )
         audio_intervals = _normalize_interval_list(intervals)
 
@@ -167,6 +173,7 @@ def run_file_job(
                 video_path=input_path,
                 tmpdir=tmpdir,
                 chunk_seconds=audio_chunk_seconds,
+                subtitle_path=subtitle_path,
             )
 
         if audio_intervals:
@@ -219,6 +226,7 @@ def run_file_job(
                     video_path=input_path,
                     tmpdir=tmpdir,
                     chunk_seconds=audio_chunk_seconds,
+                    subtitle_path=subtitle_path,
                 )
 
             def video_job() -> Dict[str, Any]:

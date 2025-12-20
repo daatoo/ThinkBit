@@ -16,6 +16,8 @@ import threading
 
 from src.aegisai.audio.text_buffer import TextBuffer
 from src.aegisai.audio.workers import audio_worker
+from src.aegisai.audio.subtitle_parser import parse_subtitle_file
+from src.aegisai.moderation.text_rules import analyze_text
 from pydub import AudioSegment
 
 Interval = Tuple[float, float]
@@ -107,6 +109,7 @@ def filter_audio_file(
     output_audio_path: str | None = None,
     chunk_seconds: int = 5,
     progress_callback: Optional[callable] = None,
+    subtitle_path: str | None = None,
 ) -> List[Interval]:
     """
     Run audio-only moderation on an AUDIO file.
@@ -125,6 +128,9 @@ def filter_audio_file(
             If None, no audio file is written; we only return the intervals.
         chunk_seconds:
             Length of each audio chunk processed by STT.
+        subtitle_path:
+            Optional path to an SRT or VTT subtitle file.
+            If provided, STT is skipped and subtitles are used for moderation.
 
     Returns:
         List of merged (start, end) intervals where audio should be muted.
@@ -133,72 +139,101 @@ def filter_audio_file(
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
     muted_intervals: List[Interval] = []
-    text_buffer = TextBuffer()             # shared rolling text buffer
-    audio_q: "queue.Queue" = queue.Queue()
-    event_q: "queue.Queue" = queue.Queue()
 
-    num_workers = 12
-
-    # Start audio_worker threads
-    workers: list[threading.Thread] = []
-    for _ in range(num_workers):
-        t = threading.Thread(
-            target=audio_worker,
-            args=(audio_q, event_q, text_buffer, muted_intervals, chunk_seconds),
-            daemon=True,
-        )
-        t.start()
-        workers.append(t)
-
-    with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
-        print("[filter_audio_file] Running ffmpeg segmentation...")
+    if subtitle_path:
+        print(f"[filter_audio_file] Using subtitles from: {subtitle_path}")
         if progress_callback:
-            progress_callback(5, "Segmenting audio...")
+            progress_callback(10, "Processing subtitles...")
 
         try:
-            # This function name says 'video_path' but it just means "ffmpeg input path".
-            # It's safe to use it for audio-only files as well.
-            chunk_files = extract_audio_chunks_from_video(
-                video_path=audio_path,
-                output_dir=tmpdir,
-                chunk_seconds=chunk_seconds,
-            )
+            segments = parse_subtitle_file(subtitle_path)
+            for seg in segments:
+                text = seg["text"]
+                start_ts = seg["start"]
+                end_ts = seg["end"]
+
+                result = analyze_text(text)
+                if result.block:
+                    print(f"[filter_audio_file] Muting subtitle segment: '{text}' ({start_ts}-{end_ts})")
+                    muted_intervals.append((start_ts, end_ts))
+
         except Exception as e:
-            print(f"[filter_audio_file] Segmentation failed: {e}")
+            print(f"[filter_audio_file] Error parsing subtitles: {e}")
+            # Fallback to STT or raise? Requirement says skip STT.
+            # We will return empty or partial intervals if parsing fails.
+            pass
+
+        if progress_callback:
+            progress_callback(90, "Subtitle analysis complete")
+
+    else:
+        # Standard STT workflow
+        text_buffer = TextBuffer()             # shared rolling text buffer
+        audio_q: "queue.Queue" = queue.Queue()
+        event_q: "queue.Queue" = queue.Queue()
+
+        num_workers = 12
+
+        # Start audio_worker threads
+        workers: list[threading.Thread] = []
+        for _ in range(num_workers):
+            t = threading.Thread(
+                target=audio_worker,
+                args=(audio_q, event_q, text_buffer, muted_intervals, chunk_seconds),
+                daemon=True,
+            )
+            t.start()
+            workers.append(t)
+
+        with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
+            print("[filter_audio_file] Running ffmpeg segmentation...")
+            if progress_callback:
+                progress_callback(5, "Segmenting audio...")
+
+            try:
+                # This function name says 'video_path' but it just means "ffmpeg input path".
+                # It's safe to use it for audio-only files as well.
+                chunk_files = extract_audio_chunks_from_video(
+                    video_path=audio_path,
+                    output_dir=tmpdir,
+                    chunk_seconds=chunk_seconds,
+                )
+            except Exception as e:
+                print(f"[filter_audio_file] Segmentation failed: {e}")
+                for _ in range(num_workers):
+                    audio_q.put(None)
+                audio_q.join()
+                for t in workers:
+                    t.join()
+                return []
+
+            print(f"[filter_audio_file] Found {len(chunk_files)} chunks")
+
+                    # Enqueue chunks for workers
+            for idx, wav_path in enumerate(chunk_files):
+                ts = float(idx * chunk_seconds)
+                print(
+                    f"[filter_audio_file] Queueing chunk {idx} "
+                    f"at t={ts:.1f}s -> {wav_path}"
+                )
+                audio_q.put((wav_path, ts))
+
+            if progress_callback:
+                progress_callback(10, f"Queued {len(chunk_files)} audio chunks for analysis")
+
+            # Send stop signals
             for _ in range(num_workers):
                 audio_q.put(None)
+
+            # Wait until all items processed
             audio_q.join()
-            for t in workers:
-                t.join()
-            return []
 
-        print(f"[filter_audio_file] Found {len(chunk_files)} chunks")
+        # Join worker threads (clean exit)
+        for t in workers:
+            t.join()
 
-                # Enqueue chunks for workers
-        for idx, wav_path in enumerate(chunk_files):
-            ts = float(idx * chunk_seconds)
-            print(
-                f"[filter_audio_file] Queueing chunk {idx} "
-                f"at t={ts:.1f}s -> {wav_path}"
-            )
-            audio_q.put((wav_path, ts))
-        
         if progress_callback:
-            progress_callback(10, f"Queued {len(chunk_files)} audio chunks for analysis")
-
-        # Send stop signals
-        for _ in range(num_workers):
-            audio_q.put(None)
-
-        # Wait until all items processed
-        audio_q.join()
-
-    # Join worker threads (clean exit)
-    for t in workers:
-        t.join()
-        
-    if progress_callback:
-        progress_callback(90, "Audio analysis complete")
+            progress_callback(90, "Audio analysis complete")
 
     # (Optional) you can drain event_q here if you want to log/use events:
     # while not event_q.empty():

@@ -96,6 +96,7 @@ def process_media(
     filter_audio: bool,
     filter_video: bool,
     progress_callback: callable = None,
+    subtitle_path: Path | None = None,
 ) -> PipelineResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_filename = f"{input_path.stem}_censored{input_path.suffix}"
@@ -104,6 +105,11 @@ def process_media(
     _ensure_pipeline_imports()
 
     config = _select_pipeline_config(input_type, filter_audio, filter_video)
+
+    # Inject subtitle_path into config if provided
+    if subtitle_path:
+        import dataclasses
+        config = dataclasses.replace(config, subtitle_path=str(subtitle_path))
 
     result = run_job(
         cfg=config,
