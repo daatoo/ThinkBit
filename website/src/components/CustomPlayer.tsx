@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
-import { Play, Pause, Volume2, VolumeX, Maximize2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Maximize2, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
+import AudioVisualizer from "@/components/ui/AudioVisualizer";
 
 interface CustomPlayerProps {
   src: string;
@@ -20,15 +21,19 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
+  const [visualizerMode, setVisualizerMode] = useState<'bars' | 'wave' | 'oscilloscope'>('bars');
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const media = mediaRef.current;
     if (!media) return;
 
     const updateTime = () => {
-      setCurrentTime(media.currentTime);
-      setDuration(media.duration || 0);
-      setProgress((media.currentTime / media.duration) * 100);
+      if (!isDragging) {
+        setCurrentTime(media.currentTime);
+        setDuration(media.duration || 0);
+        setProgress((media.currentTime / media.duration) * 100);
+      }
     };
 
     const handleEnded = () => setIsPlaying(false);
@@ -65,12 +70,55 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
     setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!mediaRef.current || !progressBarRef.current) return;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    mediaRef.current.currentTime = pos * mediaRef.current.duration;
+  const toggleVisualizerMode = () => {
+      const modes: ('bars' | 'wave' | 'oscilloscope')[] = ['bars', 'wave', 'oscilloscope'];
+      const currentIndex = modes.indexOf(visualizerMode);
+      setVisualizerMode(modes[(currentIndex + 1) % modes.length]);
   };
+
+  const updateSeek = (clientX: number) => {
+      if (!mediaRef.current || !progressBarRef.current) return;
+      const rect = progressBarRef.current.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+
+      const newTime = pos * mediaRef.current.duration;
+      setCurrentTime(newTime);
+      setProgress(pos * 100);
+
+      // Real-time scrubbing: update media current time
+      if (Math.abs(mediaRef.current.currentTime - newTime) > 0.1) {
+          mediaRef.current.currentTime = newTime;
+      }
+  };
+
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+      setIsDragging(true);
+      updateSeek(e.clientX);
+  };
+
+  useEffect(() => {
+      const handleDragMove = (e: MouseEvent) => {
+          if (isDragging) {
+              updateSeek(e.clientX);
+          }
+      };
+
+      const handleDragEnd = () => {
+          if (isDragging) {
+              setIsDragging(false);
+          }
+      };
+
+      if (isDragging) {
+          window.addEventListener('mousemove', handleDragMove);
+          window.addEventListener('mouseup', handleDragEnd);
+      }
+
+      return () => {
+          window.removeEventListener('mousemove', handleDragMove);
+          window.removeEventListener('mouseup', handleDragEnd);
+      };
+  }, [isDragging]);
 
   const toggleMute = () => {
     if (!mediaRef.current) return;
@@ -119,24 +167,21 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
           src={src}
           className="w-full h-full object-contain bg-black"
           onClick={togglePlay}
+          crossOrigin="anonymous"
         />
       ) : (
-        <div className="flex items-center justify-center min-h-[150px] bg-gradient-to-br from-secondary/10 to-primary/5">
-             <div className="w-full px-8">
-                 {/* Visualizer placeholder / simple bars */}
-                 <div className="flex items-end justify-center gap-1 h-16 mb-4">
-                     {[...Array(20)].map((_, i) => (
-                         <div
-                            key={i}
-                            className="w-1 bg-primary/50 rounded-t-sm transition-all duration-75"
-                            style={{
-                                height: isPlaying ? `${Math.random() * 100}%` : '20%',
-                                opacity: 0.5 + (i % 2) * 0.5
-                            }}
-                         />
-                     ))}
-                 </div>
-                 <audio ref={mediaRef as React.RefObject<HTMLAudioElement>} src={src} />
+        <div className="flex items-center justify-center min-h-[150px] bg-gradient-to-br from-secondary/10 to-primary/5 relative overflow-hidden">
+             {/* Visualizer Background */}
+             <div className="absolute inset-0 z-0 flex items-center justify-center opacity-80 pointer-events-none">
+                 <AudioVisualizer
+                    mediaRef={mediaRef}
+                    mode={visualizerMode}
+                    className="w-full h-full object-cover"
+                 />
+             </div>
+
+             <div className="w-full px-8 z-10 relative">
+                 <audio ref={mediaRef as React.RefObject<HTMLAudioElement>} src={src} crossOrigin="anonymous" />
              </div>
         </div>
       )}
@@ -152,7 +197,7 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
         <div
             ref={progressBarRef}
             className="relative w-full h-1.5 bg-white/20 rounded-full cursor-pointer hover:h-2.5 transition-all group/progress"
-            onClick={handleSeek}
+            onMouseDown={handleDragStart}
         >
             {/* Buffered/Loaded - skipped for simplicity */}
 
@@ -197,14 +242,26 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
                 </div>
             </div>
 
-            {type === "video" && (
-                <button
-                    onClick={toggleFullscreen}
-                    className="text-white/80 hover:text-white transition-colors"
-                >
-                    <Maximize2 className="w-4 h-4" />
-                </button>
-            )}
+            <div className="flex items-center gap-2">
+                {type === "audio" && (
+                    <button
+                        onClick={toggleVisualizerMode}
+                        className="text-white/80 hover:text-white transition-colors"
+                        title={`Visualizer Mode: ${visualizerMode}`}
+                    >
+                        <Activity className="w-4 h-4" />
+                    </button>
+                )}
+
+                {type === "video" && (
+                    <button
+                        onClick={toggleFullscreen}
+                        className="text-white/80 hover:text-white transition-colors"
+                    >
+                        <Maximize2 className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
         </div>
       </div>
 
