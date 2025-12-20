@@ -192,20 +192,34 @@ def blur_and_mute_intervals_in_video(
     # ======================
     # Codec settings
     # ======================
-    # Video: re-encode only if we used a video filter
-    if has_video_filter:
-        if output_video_path.lower().endswith(".webm"):
+    # Video: re-encode if we used a video filter OR if we are outputting to WebM (container/codec compat)
+    is_webm = output_video_path.lower().endswith(".webm")
+    
+    if has_video_filter or is_webm:
+        if is_webm:
+            # Re-encode to VP9 for WebM
             cmd += ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8"]
         else:
+            # Re-encode to H.264 if filtering is needed or forced
             cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"]
     else:
+        # No video filter AND not WebM -> Safe to copy (assuming input matches output container, e.g. mp4->mp4)
         cmd += ["-c:v", "copy"]
 
     # Audio: re-encode only if we used an audio filter
+    # Note: If output is WebM, we should generally use Opus or Vorbis, but AAC might be supported in some WebM implementations
+    # strict WebM uses Vorbis/Opus. Let's force re-encode to be safe if WebM.
     if has_audio_filter:
-        cmd += ["-c:a", "aac"]
+        if is_webm:
+             cmd += ["-c:a", "libvorbis"] # or libopus
+        else:
+             cmd += ["-c:a", "aac"]
     else:
-        cmd += ["-c:a", "copy"]
+         # If it's WebM, we can't just copy AAC usually. 
+         if is_webm:
+             cmd += ["-c:a", "libvorbis"]
+         else:
+             cmd += ["-c:a", "copy"]
 
     cmd.append(output_video_path)
 
@@ -231,16 +245,26 @@ def mute_intervals_in_video(
 
     # Build volume filter string to mute all intervals
     af_filter = _build_volume_mute_filter(mute_intervals)
+    
+    is_webm = output_video_path.lower().endswith(".webm")
 
     cmd_mute = [
         "ffmpeg",
         "-y",
         "-i", video_path,
         "-af", af_filter,
-        "-c:v", "copy",   # keep video as-is
-        "-c:a", "aac",    # re-encode audio because we used -af
-        output_video_path,
     ]
+    
+    if is_webm:
+        # WebM: must re-encode video to VP9 (cant copy H264) and audio to Vorbis/Opus
+        cmd_mute += ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8"]
+        cmd_mute += ["-c:a", "libvorbis"]
+    else:
+        # MP4/MKV: copy video (H264), re-encode audio (AAC)
+        cmd_mute += ["-c:v", "copy"]
+        cmd_mute += ["-c:a", "aac"]
+
+    cmd_mute.append(output_video_path)
 
     subprocess.run(cmd_mute, check=True)
 

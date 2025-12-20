@@ -12,6 +12,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
+import sys
+
+# Force UTF-8 encoding for stdout/stderr on Windows to avoid charmap errors
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 from .db import get_db, init_db
 from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now

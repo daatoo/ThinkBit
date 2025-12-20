@@ -38,10 +38,14 @@ export interface MessageResponse {
 export async function uploadFile(
   file: File,
   filterAudio: boolean = true,
-  filterVideo: boolean = false
+  filterVideo: boolean = false,
+  subtitleFile?: File
 ): Promise<MediaResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (subtitleFile) {
+    formData.append("subtitle_file", subtitleFile);
+  }
 
   // Construct query params
   const params = new URLSearchParams();

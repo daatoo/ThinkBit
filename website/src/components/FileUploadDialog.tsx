@@ -28,11 +28,13 @@ type DialogState = "upload" | "processing" | "preview";
 const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
   const [dialogState, setDialogState] = useState<DialogState>("upload");
   const [streamUrl, setStreamUrl] = useState("");
   const [outputUrl, setOutputUrl] = useState("");
   const [processedMedia, setProcessedMedia] = useState<MediaResponse | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const subtitleInputRef = useRef<HTMLInputElement>(null);
 
   const isStream = filterMode?.type === "stream";
   const isAudio = filterMode?.type === "audio";
@@ -63,8 +65,20 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
     }
   }, []);
 
+  const handleSubtitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.name.endsWith(".srt") || file.name.endsWith(".vtt")) {
+        setSubtitleFile(file);
+      } else {
+        toast.error("Only .srt and .vtt subtitle files are supported");
+      }
+    }
+  }, []);
+
   const handleClose = useCallback(() => {
     setSelectedFile(null);
+    setSubtitleFile(null);
     setDialogState("upload");
     setStreamUrl("");
     setOutputUrl("");
@@ -111,11 +125,10 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
 
     try {
       // 1. Upload initial file
-      let media = await uploadFile(selectedFile, filterAudio, filterVideo);
+      let media = await uploadFile(selectedFile, filterAudio, filterVideo, subtitleFile || undefined);
       setProcessedMedia(media);
 
       // 2. Poll for status
-
 
       // Wait, let's restructure this to be cleaner with a while loop
 
@@ -147,11 +160,12 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
       setDialogState("upload");
       toast.error(error.message || "Processing failed. Please try again.");
     }
-  }, [selectedFile, isStream, filterMode]);
+  }, [selectedFile, isStream, filterMode, subtitleFile]);
 
 
   const handleReset = useCallback(() => {
     setSelectedFile(null);
+    setSubtitleFile(null);
     setProcessedMedia(null);
     setDialogState("upload");
   }, []);
@@ -223,80 +237,125 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
                   </div>
                 </div>
               ) : (
-                <div
-                  className={cn(
-                    "relative border-2 border-dashed rounded-2xl p-10 transition-all duration-300 cursor-pointer group",
-                    dragActive
-                      ? "border-primary bg-primary/10 scale-[1.02]"
-                      : "border-border/50 hover:border-primary/50 hover:bg-secondary/30",
-                    selectedFile && "border-primary/50 bg-primary/5"
-                  )}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={() => inputRef.current?.click()}
-                >
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept={acceptTypes}
-                    onChange={handleChange}
-                    className="hidden"
-                  />
+                <>
+                  <div
+                    className={cn(
+                      "relative border-2 border-dashed rounded-2xl p-10 transition-all duration-300 cursor-pointer group",
+                      dragActive
+                        ? "border-primary bg-primary/10 scale-[1.02]"
+                        : "border-border/50 hover:border-primary/50 hover:bg-secondary/30",
+                      selectedFile && "border-primary/50 bg-primary/5"
+                    )}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    <input
+                      ref={inputRef}
+                      type="file"
+                      accept={acceptTypes}
+                      onChange={handleChange}
+                      className="hidden"
+                    />
 
-                  <div className="flex flex-col items-center gap-5">
-                    <div className={cn(
-                      "w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300",
-                      selectedFile
-                        ? "bg-gradient-to-br from-primary/20 to-accent/10"
-                        : "bg-secondary/50 group-hover:bg-primary/10"
-                    )}>
-                      {selectedFile ? (
-                        isAudio ? (
-                          <FileAudio className="w-10 h-10 text-primary" />
+                    <div className="flex flex-col items-center gap-5">
+                      <div className={cn(
+                        "w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300",
+                        selectedFile
+                          ? "bg-gradient-to-br from-primary/20 to-accent/10"
+                          : "bg-secondary/50 group-hover:bg-primary/10"
+                      )}>
+                        {selectedFile ? (
+                          isAudio ? (
+                            <FileAudio className="w-10 h-10 text-primary" />
+                          ) : (
+                            <FileVideo className="w-10 h-10 text-primary" />
+                          )
                         ) : (
-                          <FileVideo className="w-10 h-10 text-primary" />
-                        )
+                          <Upload className={cn(
+                            "w-10 h-10 transition-colors",
+                            dragActive ? "text-primary" : "text-muted-foreground group-hover:text-primary"
+                          )} />
+                        )}
+                      </div>
+
+                      {selectedFile ? (
+                        <div className="text-center">
+                          <p className="font-semibold text-foreground text-lg">{selectedFile.name}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFile(null);
+                            }}
+                            className="mt-3 text-sm text-destructive hover:text-destructive/80 flex items-center gap-1.5 mx-auto px-3 py-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                          >
+                            <X className="w-4 h-4" /> Remove file
+                          </button>
+                        </div>
                       ) : (
-                        <Upload className={cn(
-                          "w-10 h-10 transition-colors",
-                          dragActive ? "text-primary" : "text-muted-foreground group-hover:text-primary"
-                        )} />
+                        <div className="text-center">
+                          <p className="font-semibold text-foreground text-lg">
+                            {dragActive ? "Drop your file here" : "Drag & drop to upload"}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            or <span className="text-primary">browse files</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground/60 mt-3">
+                            {isAudio ? "MP3, WAV, AAC • Max 500MB" : "MP4, MOV, AVI, WEBM • Max 2GB"}
+                          </p>
+                        </div>
                       )}
                     </div>
-
-                    {selectedFile ? (
-                      <div className="text-center">
-                        <p className="font-semibold text-foreground text-lg">{selectedFile.name}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                        </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedFile(null);
-                          }}
-                          className="mt-3 text-sm text-destructive hover:text-destructive/80 flex items-center gap-1.5 mx-auto px-3 py-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
-                        >
-                          <X className="w-4 h-4" /> Remove file
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <p className="font-semibold text-foreground text-lg">
-                          {dragActive ? "Drop your file here" : "Drag & drop to upload"}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          or <span className="text-primary">browse files</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground/60 mt-3">
-                          {isAudio ? "MP3, WAV, AAC • Max 500MB" : "MP4, MOV, AVI, WEBM • Max 2GB"}
-                        </p>
-                      </div>
-                    )}
                   </div>
-                </div>
+
+                  {selectedFile && !isAudio && (
+                    <div className="mt-4">
+                      <input
+                        ref={subtitleInputRef}
+                        type="file"
+                        accept=".srt,.vtt"
+                        onChange={handleSubtitleChange}
+                        className="hidden"
+                      />
+                      <div
+                        className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer"
+                        onClick={() => subtitleInputRef.current?.click()}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                            CC
+                          </div>
+                          <div className="text-left">
+                            <p className="text-sm font-medium text-foreground">
+                              {subtitleFile ? subtitleFile.name : "Upload Subtitles (Optional)"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {subtitleFile ? `${(subtitleFile.size / 1024).toFixed(1)} KB` : ".SRT or .VTT file"}
+                            </p>
+                          </div>
+                        </div>
+                        {subtitleFile ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSubtitleFile(null);
+                            }}
+                            className="text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-destructive/10 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="text-xs text-primary font-medium px-2 py-1 rounded-md bg-primary/10">Upload</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="flex gap-3 mt-6">

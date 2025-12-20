@@ -18,6 +18,20 @@ def _ensure_pipeline_imports():
     global run_job, AUDIO_FILE_FILTER, VIDEO_FILE_AUDIO_ONLY
     global VIDEO_FILE_VIDEO_ONLY, VIDEO_FILE_AUDIO_VIDEO, PipelineConfig
 
+    # Ensure GOOGLE_APPLICATION_CREDENTIALS is set
+    import os
+    if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
+        # Assuming project root is 3 levels up from src/backend/services?
+        # layout: root/src/backend/services/pipeline_wrapper.py
+        # root is 4 levels up: parent -> services, parent -> backend, parent -> src, parent -> root
+        root_dir = Path(__file__).resolve().parents[3] 
+        key_file = root_dir / "aegis-key.json"
+        if key_file.exists():
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(key_file)
+            logger.info(f"Set GOOGLE_APPLICATION_CREDENTIALS from {key_file}")
+        else:
+            logger.warning(f"aegis-key.json not found at {key_file}, and GOOGLE_APPLICATION_CREDENTIALS not set.")
+
     if run_job is None:
         from src.aegisai.pipeline.file_runner import run_job as _run_job
         from src.aegisai.pipeline.use_cases import (
@@ -107,16 +121,38 @@ def process_media(
     config = _select_pipeline_config(input_type, filter_audio, filter_video)
 
     # Inject subtitle_path into config if provided
+    # Inject subtitle_path into config if provided, or attempt extraction
+    extracted_subtitle_path = None
     if subtitle_path:
         import dataclasses
         config = dataclasses.replace(config, subtitle_path=str(subtitle_path))
+    else:
+        # Attempt to extract subtitles from the video if it's a video input
+        if input_type == "video":
+            from src.aegisai.video.segment import extract_subtitles_from_video
+            extraction_path = output_dir / f"{input_path.stem}_extracted.srt"
+            if extract_subtitles_from_video(str(input_path), str(extraction_path)):
+                logger.info(f"Extracted subtitles to {extraction_path}")
+                import dataclasses
+                config = dataclasses.replace(config, subtitle_path=str(extraction_path))
+                extracted_subtitle_path = extraction_path
+            else:
+                 logger.info("No subtitles extracted from video.")
 
-    result = run_job(
-        cfg=config,
-        input_path_or_stream=str(input_path),
-        output_path=str(output_path),
-        progress_callback=progress_callback,
-    )
+    try:
+        result = run_job(
+            cfg=config,
+            input_path_or_stream=str(input_path),
+            output_path=str(output_path),
+            progress_callback=progress_callback,
+        )
+    finally:
+        # clean up extracted subtitle file if we created one
+        if extracted_subtitle_path and extracted_subtitle_path.exists():
+            try:
+                extracted_subtitle_path.unlink()
+            except Exception as e:
+                logger.warning(f"Failed to cleanup extracted subtitle file: {e}")
 
     audio_intervals = result.get("audio_intervals") or []
     video_intervals = result.get("video_intervals") or []

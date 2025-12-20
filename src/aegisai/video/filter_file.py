@@ -172,6 +172,8 @@ def filter_video_file(
                 return analyze_frame_moderation(frame_path, timestamp=ts)
             except Exception as e:
                 print(f"[filter_video_file] Error moderating frame at {ts:.2f}s: {e}")
+                import logging
+                logging.getLogger(__name__).error(f"Error moderating frame at {ts:.2f}s: {e}")
                 # Return a "safe" result on error
                 from src.aegisai.vision.vision_rules import FrameModerationResult
                 return FrameModerationResult(
