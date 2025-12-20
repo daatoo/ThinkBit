@@ -336,7 +336,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
             fileType={isAudio ? "audio" : "video"}
             filterMode={filterMode?.label || ""}
             onReset={handleReset}
-            mediaId={processedMedia.id}
+            media={processedMedia}
           />
         )}
       </DialogContent>
