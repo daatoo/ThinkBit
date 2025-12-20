@@ -64,7 +64,18 @@ export async function uploadFile(
 
   return response.json();
 }
+export async function deleteRawFile(filename: string): Promise<MessageResponse> {
+  const response = await fetch(`${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+  });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to delete raw file: ${errorText}`);
+  }
+
+  return response.json();
+}
 export function getRawFileUrl(filename: string): string {
   return `${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}`;
 }

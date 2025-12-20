@@ -274,7 +274,40 @@ def get_output_file(filename: str):
 
     return FileResponse(path=file_path)
 
+@app.delete("/outputs/files/{filename}", response_model=MessageResponse)
+def delete_output_file(filename: str, db: Session = Depends(get_db)):
+    file_path = OUTPUTS_DIR / filename
+    # Security check: prevent directory traversal
+    if not file_path.resolve().is_relative_to(OUTPUTS_DIR.resolve()):
+         raise HTTPException(status_code=403, detail="Access denied")
 
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Resolve absolute path to match against DB
+    target_path = str(file_path.resolve())
+
+    # Find associated media record
+    media = db.query(ProcessedMedia).filter(ProcessedMedia.output_path == target_path).first()
+
+    if media:
+        input_path = Path(media.input_path) if media.input_path else None
+        output_path = Path(media.output_path) if media.output_path else None
+
+        db.delete(media)
+        db.commit()
+
+        if input_path and input_path.exists():
+            input_path.unlink()
+        if output_path and output_path.exists():
+            output_path.unlink()
+    else:
+        # Just delete the orphan file
+        file_path.unlink()
+
+    return MessageResponse(message="Deleted")
+
+    
 @app.get("/debug/logs", response_class=PlainTextResponse)
 def get_logs():
     log_path = Path("backend.log")

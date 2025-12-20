@@ -1,17 +1,28 @@
 import { useState, useEffect } from "react";
-import { Clock, RefreshCw, File } from "lucide-react";
-import { listRawFiles, RawFileResponse, getRawFileUrl } from "@/lib/api";
+import { Clock, RefreshCw, File, Trash2 } from "lucide-react";
+import { listRawFiles, RawFileResponse, getRawFileUrl, deleteRawFile } from "@/lib/api";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CustomPlayer from "@/components/CustomPlayer";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const RawOutputsSection = () => {
     const [files, setFiles] = useState<RawFileResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
-
+    const [fileToDelete, setFileToDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const fetchFiles = async () => {
         try {
             const data = await listRawFiles();
@@ -56,6 +67,26 @@ const RawOutputsSection = () => {
         return null;
     }
 
+    const handleDeleteClick = (e: React.MouseEvent, filename: string) => {
+        e.stopPropagation();
+        setFileToDelete(filename);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!fileToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await deleteRawFile(fileToDelete);
+            await fetchFiles();
+        } catch (error) {
+            console.error("Failed to delete file:", error);
+            // Optionally add toast notification here
+        } finally {
+            setIsDeleting(false);
+            setFileToDelete(null);
+        }
+    };
     return (
         <section id="raw-outputs" className="py-12 px-8 relative overflow-hidden bg-black/20">
             <div className="max-w-6xl mx-auto">
@@ -86,13 +117,12 @@ const RawOutputsSection = () => {
                         <div
                             key={file.filename}
                             onClick={() => handleFileClick(file.filename)}
-                            className="bg-card/50 border border-border/50 rounded-lg p-4 flex flex-col hover:border-primary/20 transition-all duration-200 cursor-pointer hover:bg-card/80 group"
-                        >
+                            className="bg-card/50 border border-border/50 rounded-lg p-4 flex flex-col hover:border-primary/20 transition-all duration-200 cursor-pointer hover:bg-card/80 group relative"                        >
                             <div className="flex items-start gap-3">
                                 <div className="p-2 rounded-md bg-secondary text-muted-foreground group-hover:text-primary transition-colors">
                                     <File className="w-5 h-5" />
                                 </div>
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 pr-8">
                                     <p className="font-medium text-sm truncate" title={file.filename}>
                                         {file.filename}
                                     </p>
@@ -101,6 +131,13 @@ const RawOutputsSection = () => {
                                         <span>{format(new Date(file.modified_at), "MMM d, yyyy • HH:mm")}</span>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={(e) => handleDeleteClick(e, file.filename)}
+                                    className="absolute top-4 right-4 p-1.5 rounded-md text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Delete file"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     ))}
@@ -123,6 +160,29 @@ const RawOutputsSection = () => {
                     )}
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+                <AlertDialogContent className="bg-black/90 border-border/50">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete "{fileToDelete}". If this file was generated by the app,
+                            the associated database record and original upload will also be removed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmDelete}
+                            disabled={isDeleting}
+                            className="bg-red-500 hover:bg-red-600 focus:ring-red-500"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </section>
     );
 };
