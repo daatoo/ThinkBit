@@ -1,7 +1,9 @@
 import { Shield, Sparkles, Play, ArrowRight } from "lucide-react";
 import ParticleNetwork from "@/components/ParticleNetwork";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
   return (
     <section className="relative py-32 px-8 overflow-hidden min-h-[90vh] flex items-center justify-center">
       {/* Background effects */}
@@ -59,7 +61,10 @@ const HeroSection = () => {
               className="flex flex-col sm:flex-row gap-6 opacity-0 animate-fade-in"
               style={{ animationDelay: "300ms" }}
             >
-              <button className="gradient-button px-8 py-4 text-base flex items-center justify-center gap-2 group">
+              <button
+                onClick={() => navigate("/free-trial")}
+                className="gradient-button px-8 py-4 text-base flex items-center justify-center gap-2 group"
+              >
                 <div className="flex items-center gap-2">
                   <Shield className="w-5 h-5" />
                   <span>Start Free Trial</span>
