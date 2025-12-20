@@ -97,7 +97,7 @@ const FreeTrialCheckout = () => {
 
             <div className="p-6 rounded-xl bg-primary/10 border border-primary/50 shadow-[0_0_30px_-5px_hsl(320,100%,55%,0.3)] backdrop-blur-sm relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <p className="text-base text-white flex items-start gap-3 relative z-10">
+              <div className="text-base text-white flex items-start gap-3 relative z-10">
                 <div className="p-2 rounded-full bg-primary/20 text-primary">
                   <ShieldCheck className="w-5 h-5 animate-pulse" />
                 </div>
@@ -105,7 +105,7 @@ const FreeTrialCheckout = () => {
                   <strong className="text-primary text-lg block mb-1">Fast & Secure</strong>
                   <span className="text-gray-100/90 leading-relaxed">Your data is encrypted and processed with industry-leading security standards.</span>
                 </div>
-              </p>
+              </div>
             </div>
           </div>
 

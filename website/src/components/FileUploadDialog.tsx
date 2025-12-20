@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import ProcessingState from "./ProcessingState";
@@ -163,6 +164,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className={cn("bg-card border-primary/20 overflow-hidden transition-all duration-300", getDialogSize())}>
+        <DialogDescription className="sr-only">Upload and process media files</DialogDescription>
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
@@ -336,7 +338,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
             fileType={isAudio ? "audio" : "video"}
             filterMode={filterMode?.label || ""}
             onReset={handleReset}
-            mediaId={processedMedia.id}
+            media={processedMedia}
           />
         )}
       </DialogContent>
