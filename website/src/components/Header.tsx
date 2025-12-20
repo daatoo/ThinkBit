@@ -1,6 +1,7 @@
 import { Shield, Menu } from "lucide-react";
 import { useState } from "react";
 import { InfoModal } from "./InfoModals";
+import { SignInModal, SignUpModal } from "./AuthModals";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,12 +37,16 @@ const Header = () => {
 
         {/* CTA */}
         <div className="hidden md:flex items-center gap-4">
-          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2">
-            Sign In
-          </button>
-          <button className="gradient-button text-sm px-5 py-2.5">
-            Get Started
-          </button>
+          <SignInModal>
+            <button className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2">
+              Sign In
+            </button>
+          </SignInModal>
+          <SignUpModal>
+            <button className="gradient-button text-sm px-5 py-2.5">
+              Get Started
+            </button>
+          </SignUpModal>
         </div>
 
         {/* Mobile menu button */}
@@ -65,8 +70,12 @@ const Header = () => {
               </button>
             </InfoModal>
             <hr className="border-border/50" />
-            <button className="text-sm text-muted-foreground hover:text-foreground text-left">Sign In</button>
-            <button className="gradient-button text-sm">Get Started</button>
+            <SignInModal>
+              <button className="text-sm text-muted-foreground hover:text-foreground text-left">Sign In</button>
+            </SignInModal>
+            <SignUpModal>
+              <button className="gradient-button text-sm">Get Started</button>
+            </SignUpModal>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { Check, Shield, Zap } from "lucide-react";
+import { SignUpModal } from "./AuthModals";
 
 const PricingSection = () => {
   return (
@@ -55,9 +56,11 @@ const PricingSection = () => {
                </li>
              </ul>
 
-             <button className="w-full py-3 rounded-lg border border-primary/50 text-primary font-semibold hover:bg-primary/10 transition-colors">
-               Get Started
-             </button>
+             <SignUpModal>
+               <button className="w-full py-3 rounded-lg border border-primary/50 text-primary font-semibold hover:bg-primary/10 transition-colors">
+                 Get Started
+               </button>
+             </SignUpModal>
           </div>
 
           {/* Video Card */}
@@ -97,9 +100,11 @@ const PricingSection = () => {
                </li>
              </ul>
 
-             <button className="w-full py-3 rounded-lg border border-secondary/50 text-secondary font-semibold hover:bg-secondary/10 transition-colors">
-               Get Started
-             </button>
+             <SignUpModal>
+               <button className="w-full py-3 rounded-lg border border-secondary/50 text-secondary font-semibold hover:bg-secondary/10 transition-colors">
+                 Get Started
+               </button>
+             </SignUpModal>
           </div>
         </div>
 
