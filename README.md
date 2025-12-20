@@ -72,4 +72,10 @@ This script will:
 <img width="320px" alt="AEGIS st george" src="https://github.com/user-attachments/assets/138c781f-cd42-41ee-8634-bd18bd0f5aab" />
 <img width="320px" alt="King witnessing the revelation" src="https://github.com/user-attachments/assets/5e5a0c84-9f56-4cce-a8df-a0c1df54d0b1" />
 <img width="320px" alt="Pirosmani Aegis" src="https://github.com/user-attachments/assets/a5bbd66b-638a-4442-a6b6-3cde6b2c4204" />
+![1](https://github.com/user-attachments/assets/b6153e62-dd1d-447f-8c7b-7ad4f306ffbd)
+![unnamed (3)](https://github.com/user-attachments/assets/e6d641b4-4bde-49b0-a134-1c16bff21be1)
+<img width="1728" height="2464" alt="Gemini_Generated_Image_bl6nxqbl6nxqbl6n" src="https://github.com/user-attachments/assets/946bced7-7fac-4883-8329-6569e0eda6b1" />
+
+
+
 
