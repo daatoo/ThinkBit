@@ -95,6 +95,7 @@ def process_media(
     output_dir: Path,
     filter_audio: bool,
     filter_video: bool,
+    progress_callback: callable = None,
 ) -> PipelineResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_filename = f"{input_path.stem}_censored{input_path.suffix}"

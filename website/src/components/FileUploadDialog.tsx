@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import ProcessingState from "./ProcessingState";
 import OutputPreview from "./OutputPreview";
-import { uploadFile, MediaResponse } from "@/lib/api";
+import { uploadFile, MediaResponse, getMedia } from "@/lib/api";
 import { toast } from "sonner";
 
 interface FileUploadDialogProps {
@@ -114,14 +114,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
       setProcessedMedia(media);
 
       // 2. Poll for status
-      const pollInterval = setInterval(async () => {
-        try {
-          media = await uploadFile(selectedFile, filterAudio, filterVideo); // Re-upload? NO!
-          // We need getMedia(id)
-        } catch (e) {
-          // ...
-        }
-      }, 1000);
+
 
       // Wait, let's restructure this to be cleaner with a while loop
 
@@ -143,7 +136,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
 
         // Fetch update
         // CHECK: import getMedia
-        const updated = await import("@/lib/api").then(m => m.getMedia(media.id));
+        const updated = await getMedia(media.id);
         setProcessedMedia(updated);
         media = updated;
       }
