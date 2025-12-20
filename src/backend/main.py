@@ -163,22 +163,34 @@ def get_media(media_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/download/{media_id}")
-def download_media(media_id: int, db: Session = Depends(get_db)):
+def download_media(
+    media_id: int,
+    variant: str = Query("processed", regex="^(original|processed)$"),
+    db: Session = Depends(get_db)
+):
     media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
 
-    if media.status != ProcessStatus.DONE:
-        raise HTTPException(status_code=400, detail=f"Processing not complete: {media.status}")
+    if variant == "processed":
+        if media.status != ProcessStatus.DONE:
+            raise HTTPException(status_code=400, detail=f"Processing not complete: {media.status}")
 
-    if not media.output_path:
-        raise HTTPException(status_code=404, detail="Output file not found")
+        if not media.output_path:
+            raise HTTPException(status_code=404, detail="Output file not found")
 
-    output_file = Path(media.output_path)
-    if not output_file.exists():
-        raise HTTPException(status_code=404, detail="Output file missing")
+        file_path = Path(media.output_path)
+    else:
+        # Serve original input
+        if not media.input_path:
+            raise HTTPException(status_code=404, detail="Input file record missing")
 
-    return FileResponse(path=output_file, filename=output_file.name, media_type="application/octet-stream")
+        file_path = Path(media.input_path)
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"{variant.capitalize()} file missing on disk")
+
+    return FileResponse(path=file_path, filename=file_path.name, media_type="application/octet-stream")
 
 
 @app.delete("/media/{media_id}", response_model=MessageResponse)

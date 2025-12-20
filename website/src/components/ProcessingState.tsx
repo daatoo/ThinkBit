@@ -65,7 +65,7 @@ const ProcessingState = ({ fileName, progress, currentActivity, logs = [] }: Pro
             strokeWidth="4"
             strokeLinecap="round"
             strokeDasharray={`${progress * 2.83} 283`}
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-1000 ease-out"
           />
         </svg>
 
