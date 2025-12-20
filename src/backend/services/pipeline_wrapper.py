@@ -138,6 +138,11 @@ def process_media(
                 extracted_subtitle_path = extraction_path
             else:
                  logger.info("No subtitles extracted from video.")
+    
+    if config.subtitle_path:
+        logger.info(f"Pipeline configured with subtitle path: {config.subtitle_path}")
+        if progress_callback:
+            progress_callback(1, "Pipeline configured with subtitles")
 
     try:
         result = run_job(

@@ -313,7 +313,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
                     </div>
                   </div>
 
-                  {selectedFile && !isAudio && (
+                  {selectedFile && (
                     <div className="mt-4">
                       <input
                         ref={subtitleInputRef}

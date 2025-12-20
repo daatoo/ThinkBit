@@ -140,33 +140,45 @@ def filter_audio_file(
 
     muted_intervals: List[Interval] = []
 
+    # logic to determine if we run STT
+    run_stt = True
+
     if subtitle_path:
-        print(f"[filter_audio_file] Using subtitles from: {subtitle_path}")
+        print(f"[filter_audio_file] Attempting to use subtitles from: {subtitle_path}")
         if progress_callback:
-            progress_callback(10, "Processing subtitles...")
+            progress_callback(5, "Processing subtitles...")
 
         try:
             segments = parse_subtitle_file(subtitle_path)
+            # If we got here, parsing succeeded
+            run_stt = False 
+            
+            count_muted = 0
             for seg in segments:
                 text = seg["text"]
                 start_ts = seg["start"]
                 end_ts = seg["end"]
 
-                result = analyze_text(text)
+                result = analyze_text(text, strict=True)
                 if result.block:
                     print(f"[filter_audio_file] Muting subtitle segment: '{text}' ({start_ts}-{end_ts})")
                     muted_intervals.append((start_ts, end_ts))
+                    count_muted += 1
+            
+            if progress_callback:
+                progress_callback(10, f"Subtitle analysis complete. Found {count_muted} segments to mute.")
 
         except Exception as e:
-            print(f"[filter_audio_file] Error parsing subtitles: {e}")
-            # Fallback to STT or raise? Requirement says skip STT.
-            # We will return empty or partial intervals if parsing fails.
-            pass
+            msg = f"Error parsing subtitles: {e}. Falling back to STT."
+            print(f"[filter_audio_file] {msg}")
+            if progress_callback:
+                progress_callback(5, msg)
+            # run_stt remains True
 
-        if progress_callback:
-            progress_callback(90, "Subtitle analysis complete")
-
-    else:
+    if run_stt:
+        if subtitle_path:
+             print("[filter_audio_file] Running STT fallback...")
+        
         # Standard STT workflow
         text_buffer = TextBuffer()             # shared rolling text buffer
         audio_q: "queue.Queue" = queue.Queue()
@@ -188,7 +200,7 @@ def filter_audio_file(
         with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
             print("[filter_audio_file] Running ffmpeg segmentation...")
             if progress_callback:
-                progress_callback(5, "Segmenting audio...")
+                progress_callback(10, "Segmenting audio for STT...")
 
             try:
                 # This function name says 'video_path' but it just means "ffmpeg input path".
@@ -209,7 +221,7 @@ def filter_audio_file(
 
             print(f"[filter_audio_file] Found {len(chunk_files)} chunks")
 
-                    # Enqueue chunks for workers
+            # Enqueue chunks for workers
             for idx, wav_path in enumerate(chunk_files):
                 ts = float(idx * chunk_seconds)
                 print(
@@ -219,7 +231,7 @@ def filter_audio_file(
                 audio_q.put((wav_path, ts))
 
             if progress_callback:
-                progress_callback(10, f"Queued {len(chunk_files)} audio chunks for analysis")
+                progress_callback(15, f"Queued {len(chunk_files)} audio chunks for analysis")
 
             # Send stop signals
             for _ in range(num_workers):
