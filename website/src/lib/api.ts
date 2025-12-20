@@ -61,6 +61,10 @@ export async function uploadFile(
   return response.json();
 }
 
+export function getRawFileUrl(filename: string): string {
+  return `${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}`;
+}
+
 export async function getMedia(mediaId: number): Promise<MediaResponse> {
   const response = await fetch(`${API_BASE_URL}/media/${mediaId}`);
 

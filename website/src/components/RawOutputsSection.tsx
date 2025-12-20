@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { Clock, RefreshCw, File } from "lucide-react";
-import { listRawFiles, RawFileResponse } from "@/lib/api";
+import { listRawFiles, RawFileResponse, getRawFileUrl } from "@/lib/api";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import CustomPlayer from "@/components/CustomPlayer";
 
 const RawOutputsSection = () => {
     const [files, setFiles] = useState<RawFileResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
     const fetchFiles = async () => {
         try {
@@ -37,6 +40,18 @@ const RawOutputsSection = () => {
         fetchFiles();
     };
 
+    const handleFileClick = (filename: string) => {
+        setSelectedFile(filename);
+    };
+
+    const getFileType = (filename: string): "audio" | "video" => {
+        const ext = filename.split('.').pop()?.toLowerCase();
+        if (['wav', 'mp3', 'flac', 'm4a'].includes(ext || '')) {
+            return 'audio';
+        }
+        return 'video';
+    };
+
     if (!loading && files.length === 0) {
         return null;
     }
@@ -50,7 +65,7 @@ const RawOutputsSection = () => {
                             Raw Output Files
                         </h3>
                         <p className="text-sm text-muted-foreground/60">
-                            Files physically present in the output folder.
+                            Files physically present in the output folder. Click to play.
                         </p>
                     </div>
 
@@ -70,10 +85,11 @@ const RawOutputsSection = () => {
                     {files.map((file) => (
                         <div
                             key={file.filename}
-                            className="bg-card/50 border border-border/50 rounded-lg p-4 flex flex-col hover:border-primary/20 transition-all duration-200"
+                            onClick={() => handleFileClick(file.filename)}
+                            className="bg-card/50 border border-border/50 rounded-lg p-4 flex flex-col hover:border-primary/20 transition-all duration-200 cursor-pointer hover:bg-card/80 group"
                         >
                             <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-md bg-secondary text-muted-foreground">
+                                <div className="p-2 rounded-md bg-secondary text-muted-foreground group-hover:text-primary transition-colors">
                                     <File className="w-5 h-5" />
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -90,6 +106,23 @@ const RawOutputsSection = () => {
                     ))}
                 </div>
             </div>
+
+            <Dialog open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
+                <DialogContent className="sm:max-w-3xl bg-black/90 border-border/50">
+                    <DialogHeader>
+                        <DialogTitle className="text-left truncate pr-8">{selectedFile}</DialogTitle>
+                    </DialogHeader>
+                    {selectedFile && (
+                        <div className="mt-4">
+                            <CustomPlayer
+                                src={getRawFileUrl(selectedFile)}
+                                type={getFileType(selectedFile)}
+                                className="w-full aspect-video"
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </section>
     );
 };

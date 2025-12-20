@@ -230,6 +230,19 @@ def list_output_files():
     return files
 
 
+@app.get("/outputs/files/{filename}")
+def get_output_file(filename: str):
+    file_path = OUTPUTS_DIR / filename
+    # Security check: prevent directory traversal
+    if not file_path.resolve().is_relative_to(OUTPUTS_DIR.resolve()):
+         raise HTTPException(status_code=403, detail="Access denied")
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(path=file_path)
+
+
 def run_pipeline_background(media_id: int, db: Session):
     try:
         media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
