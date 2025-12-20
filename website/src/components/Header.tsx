@@ -28,6 +28,9 @@ const Header = () => {
           <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Pricing
           </a>
+          <a href="/backend" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Backend
+          </a>
           <InfoModal type="about">
             <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               About
@@ -64,6 +67,7 @@ const Header = () => {
           <div className="flex flex-col gap-4">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground">Pricing</a>
+            <a href="/backend" className="text-sm text-muted-foreground hover:text-foreground">Backend</a>
             <InfoModal type="about">
               <button className="text-sm text-muted-foreground hover:text-foreground text-left w-full">
                 About
