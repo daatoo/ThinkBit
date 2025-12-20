@@ -194,11 +194,10 @@ def blur_and_mute_intervals_in_video(
     # ======================
     # Video: re-encode only if we used a video filter
     if has_video_filter:
-        cmd += [
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-tune", "zerolatency",
-        ]
+        if output_video_path.lower().endswith(".webm"):
+            cmd += ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8"]
+        else:
+            cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"]
     else:
         cmd += ["-c:v", "copy"]
 
@@ -287,7 +286,11 @@ def blur_intervals_in_video(
     cmd += ["-vf", vf]
 
     # Only video re-encode
-    cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"]
+    # Only video re-encode
+    if output_video_path.lower().endswith(".webm"):
+        cmd += ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8"]
+    else:
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"]
 
     # Audio untouched
     cmd += ["-c:a", "copy"]

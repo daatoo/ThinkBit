@@ -49,6 +49,9 @@ def blur_intervals_in_video(
     # Mild blur: boxblur with radius 10 (was 25+ pixelation)
     vf = f"boxblur=luma_radius=10:luma_power=2:enable='{enable_all}'"
 
+    # Determine flags based on output extension
+    is_webm = output_video_path.lower().endswith(".webm")
+    
     cmd = [
         "ffmpeg",
         "-y",
@@ -58,10 +61,16 @@ def blur_intervals_in_video(
         vf,
         "-c:a",
         "copy",
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-        output_video_path,
     ]
+
+    if is_webm:
+        # VP9 settings for speed (similar to ultrafast)
+        cmd += ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8"]
+    else:
+        # x264 settings
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"]
+
+    cmd.append(output_video_path)
     subprocess.run(cmd, check=True)
 
 
