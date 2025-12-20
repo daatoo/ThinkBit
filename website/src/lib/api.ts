@@ -1,6 +1,11 @@
 // export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 export const API_BASE_URL = "http://localhost:8080";
 
+export interface RawFileResponse {
+  filename: string;
+  modified_at: string;
+}
+
 export interface Segment {
   id: number;
   start_ms: number;
@@ -100,4 +105,15 @@ export async function listMedia(status?: string): Promise<MediaResponse[]> {
 
   const data = await response.json();
   return data.items;
+}
+
+export async function listRawFiles(): Promise<RawFileResponse[]> {
+  const response = await fetch(`${API_BASE_URL}/outputs/files`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to list raw files: ${errorText}`);
+  }
+
+  return response.json();
 }
