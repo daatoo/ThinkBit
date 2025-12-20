@@ -44,3 +44,4 @@ htmlcov/
 *.temp
 
 aegis-key.json
+aegisai.db
