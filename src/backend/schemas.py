@@ -49,6 +49,11 @@ class StatsResponse(BaseModel):
     by_type: dict[str, int]
 
 
+class RawFileResponse(BaseModel):
+    filename: str
+    modified_at: datetime
+
+
 class HealthResponse(BaseModel):
     status: str
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
 from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now
-from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, SegmentResponse, StatsResponse
+from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, RawFileResponse, SegmentResponse, StatsResponse
 from .services.pipeline_wrapper import process_media
 
 logging.basicConfig(level=logging.INFO)
@@ -198,6 +199,23 @@ def delete_media(media_id: int, db: Session = Depends(get_db)):
         output_path.unlink()
 
     return MessageResponse(message="Deleted")
+
+
+@app.get("/outputs/files", response_model=list[RawFileResponse])
+def list_output_files():
+    files = []
+    if OUTPUTS_DIR.exists():
+        for path in OUTPUTS_DIR.iterdir():
+            if path.is_file():
+                # Get modification time
+                stats = path.stat()
+                files.append(
+                    RawFileResponse(
+                        filename=path.name,
+                        modified_at=datetime.fromtimestamp(stats.st_mtime)
+                    )
+                )
+    return files
 
 
 def run_pipeline_background(media_id: int, db: Session):
