@@ -11,16 +11,50 @@ def detect_toxic_segments(
     """
     From word-level timestamps, return continuous toxic segments in *local*
     chunk time.
+
+    Implements 'smart padding': extends the mute interval to cover the silence
+    gap up to the neighboring words (with a safety margin).
     """
     segments: List[Tuple[float, float]] = []
     current_start = None
     current_end = None
 
-    for w in words:
+    for i, w in enumerate(words):
         token = w.get("word", "")
         if is_bad_word(token):
-            seg_start = max(0.0, float(w["start"]) - padding)
-            seg_end = float(w["end"]) + padding
+            # Start logic: look at previous word end
+            start_val = float(w["start"])
+            if i > 0:
+                prev_end = float(words[i-1]["end"])
+                # Mute starts slightly after previous word ends (e.g. 50ms buffer)
+                # or midway if gap is very small.
+                # Here we ensure we mute the silence but don't clip previous word.
+                seg_start = prev_end + 0.05
+                # If calculated start is after the bad word start (unlikely but possible with overlap), clamp it.
+                # Actually, we want to mute BEFORE the bad word.
+                # Standard padding fallback:
+                if seg_start > start_val:
+                    seg_start = start_val - padding
+                else:
+                    # ensure we don't go back too far if gap is huge (cap at 2.0s extension)
+                    seg_start = max(seg_start, start_val - 2.0)
+            else:
+                seg_start = max(0.0, start_val - padding)
+
+            # End logic: look at next word start
+            end_val = float(w["end"])
+            if i < len(words) - 1:
+                next_start = float(words[i+1]["start"])
+                # Mute ends slightly before next word starts
+                seg_end = next_start - 0.05
+                # Fallback if gap is tiny or negative
+                if seg_end < end_val:
+                    seg_end = end_val + padding
+                else:
+                    # ensure we don't extend too far if gap is huge (cap at 2.0s extension)
+                    seg_end = min(seg_end, end_val + 2.0)
+            else:
+                seg_end = end_val + padding
 
             if current_start is None:
                 current_start = seg_start
