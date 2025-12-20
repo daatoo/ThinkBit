@@ -66,6 +66,7 @@ def filter_audio_file(
     audio_path: str,
     output_audio_path: str | None = None,
     chunk_seconds: int = 5,
+    progress_callback: Optional[callable] = None,
 ) -> List[Interval]:
     """
     Run audio-only moderation on an AUDIO file.
@@ -111,6 +112,9 @@ def filter_audio_file(
 
     with tempfile.TemporaryDirectory(prefix="aegis_audio_") as tmpdir:
         print("[filter_audio_file] Running ffmpeg segmentation...")
+        if progress_callback:
+            progress_callback(5, "Segmenting audio...")
+
         try:
             # This function name says 'video_path' but it just means "ffmpeg input path".
             # It's safe to use it for audio-only files as well.
@@ -138,6 +142,9 @@ def filter_audio_file(
                 f"at t={ts:.1f}s -> {wav_path}"
             )
             audio_q.put((wav_path, ts))
+        
+        if progress_callback:
+            progress_callback(10, f"Queued {len(chunk_files)} audio chunks for analysis")
 
         # Send stop signals
         for _ in range(num_workers):
@@ -149,6 +156,9 @@ def filter_audio_file(
     # Join worker threads (clean exit)
     for t in workers:
         t.join()
+        
+    if progress_callback:
+        progress_callback(90, "Audio analysis complete")
 
     # (Optional) you can drain event_q here if you want to log/use events:
     # while not event_q.empty():

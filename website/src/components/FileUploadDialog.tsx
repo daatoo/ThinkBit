@@ -326,6 +326,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
             fileName={selectedFile?.name || "Stream"}
             progress={processedMedia?.progress || 0}
             currentActivity={processedMedia?.current_activity || "Initializing..."}
+            logs={processedMedia?.logs}
           />
         )}
 

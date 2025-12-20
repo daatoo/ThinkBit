@@ -13,7 +13,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
-from .models import CensorSegment, ProcessStatus, ProcessedMedia
+from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now
 from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, SegmentResponse, StatsResponse
 from .services.pipeline_wrapper import process_media
 
@@ -65,6 +65,7 @@ def _to_response(media: ProcessedMedia) -> MediaResponse:
         status=media.status,
         progress=media.progress,
         current_activity=media.current_activity,
+        logs=media.logs.split("\n") if media.logs else [],
         error_message=media.error_message,
         created_at=media.created_at,
         updated_at=media.updated_at,
@@ -217,6 +218,15 @@ def run_pipeline_background(media_id: int, db: Session):
                 # Just separate transaction might be safer if frequent updates.
                 media.progress = progress
                 media.current_activity = activity
+                
+                # Append to logs
+                timestamp = utc_now().strftime("%H:%M:%S")
+                log_entry = f"[{timestamp}] {activity}"
+                if media.logs:
+                    media.logs = media.logs + "\n" + log_entry
+                else:
+                    media.logs = log_entry
+                    
                 db.commit()
             except Exception as e:
                 logger.error(f"Error updating progress: {e}")

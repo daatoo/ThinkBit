@@ -33,6 +33,7 @@ class ProcessedMedia(Base):
     status: Mapped[str] = mapped_column(String(32), default=ProcessStatus.CREATED, nullable=False)
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     current_activity: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    logs: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)

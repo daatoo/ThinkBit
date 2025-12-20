@@ -109,6 +109,7 @@ def process_media(
         cfg=config,
         input_path_or_stream=str(input_path),
         output_path=str(output_path),
+        progress_callback=progress_callback,
     )
 
     audio_intervals = result.get("audio_intervals") or []

@@ -23,6 +23,9 @@ class MediaResponse(BaseModel):
     filter_audio: bool
     filter_video: bool
     status: str
+    progress: int = 0
+    current_activity: Optional[str] = None
+    logs: Optional[list[str]] = None
     error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime

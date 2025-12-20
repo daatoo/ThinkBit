@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronUp, Terminal } from "lucide-react";
 
 interface ProcessingStateProps {
   fileName: string;
   progress: number;
   currentActivity: string;
+  logs?: string[];
 }
 
 const processingSteps = [
@@ -14,8 +16,10 @@ const processingSteps = [
   { label: "Rendering output", matcher: /Render|Output|Complet/i },
 ];
 
-const ProcessingState = ({ fileName, progress, currentActivity }: ProcessingStateProps) => {
+const ProcessingState = ({ fileName, progress, currentActivity, logs = [] }: ProcessingStateProps) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Attempt to map the backend activity string to one of our visual steps
@@ -30,6 +34,13 @@ const ProcessingState = ({ fileName, progress, currentActivity }: ProcessingStat
       else setCurrentStep(0);
     }
   }, [currentActivity, progress]);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (showDetails && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs, showDetails]);
 
   return (
     <div className="space-y-8 py-4">
@@ -119,6 +130,51 @@ const ProcessingState = ({ fileName, progress, currentActivity }: ProcessingStat
             )}
           </div>
         ))}
+      </div>
+
+      {/* Details Toggle */}
+      <div className="pt-2">
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="flex items-center gap-2 mx-auto text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+        >
+          {showDetails ? (
+            <>
+              <ChevronUp className="w-3 h-3" /> Hide Details
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-3 h-3" /> Show Details
+            </>
+          )}
+        </button>
+
+        {/* Logs View */}
+        <div
+          className={cn(
+            "grid transition-all duration-300 ease-in-out overflow-hidden mt-4",
+            showDetails ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          )}
+        >
+          <div className="min-h-0 bg-black/80 rounded-lg border border-primary/20 p-4 font-mono text-xs text-primary/80 shadow-inner">
+            <div className="flex items-center gap-2 mb-2 border-b border-primary/10 pb-2">
+              <Terminal className="w-3 h-3" />
+              <span className="font-semibold uppercase tracking-wider">Process Log</span>
+            </div>
+            <div className="max-h-[200px] overflow-y-auto space-y-1 custom-scrollbar">
+              {logs.length === 0 && (
+                <div className="text-muted-foreground italic">Waiting for logs...</div>
+              )}
+              {logs.map((log, i) => (
+                <div key={i} className="break-words">
+                  <span className="opacity-50 mr-2">{log.split(']')[0] + ']'}</span>
+                  <span>{log.split(']').slice(1).join(']')}</span>
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

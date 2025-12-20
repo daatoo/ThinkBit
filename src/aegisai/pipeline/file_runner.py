@@ -99,6 +99,7 @@ def run_file_job(
     cfg: PipelineConfig,
     input_path: str,
     output_path: str,
+    progress_callback: Optional[callable] = None,
 ) -> Dict[str, Any]:
     """
     Run a **file-based** moderation job (audio or video).
@@ -124,6 +125,9 @@ def run_file_job(
     # Allow config to override chunk size; fallback to 5 seconds.
     audio_chunk_seconds = int(getattr(cfg, "audio_chunk_seconds", 5))
 
+    if progress_callback:
+        progress_callback(1, f"Starting {media_type} pipeline")
+
     # ---------------------------------------------------------------
     # AUDIO FILE CASE
     # ---------------------------------------------------------------
@@ -137,6 +141,7 @@ def run_file_job(
             audio_path=input_path,
             output_audio_path=output_path,
             chunk_seconds=audio_chunk_seconds,
+            progress_callback=progress_callback,
         )
         audio_intervals = _normalize_interval_list(intervals)
 
@@ -182,7 +187,11 @@ def run_file_job(
         }
 
     if filter_video_flag and not filter_audio_flag:
-        video_result = filter_video_file(input_path, output_path=None)
+        video_result = filter_video_file(
+            input_path, 
+            output_path=None, 
+            progress_callback=progress_callback
+        )
         video_intervals = _normalize_interval_list(video_result)
         print("Video intervals to blur:", video_intervals)
         if video_intervals:
@@ -213,7 +222,11 @@ def run_file_job(
                 )
 
             def video_job() -> Dict[str, Any]:
-                return filter_video_file(input_path, output_path=None)
+                return filter_video_file(
+                    input_path, 
+                    output_path=None, 
+                    progress_callback=progress_callback
+                )
 
             # Run audio + video analysis in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -260,6 +273,7 @@ def run_job(
     cfg: PipelineConfig,
     input_path_or_stream: Any,
     output_path: Optional[str] = None,
+    progress_callback: Optional[callable] = None,
 ) -> Dict[str, Any]:
     """
     Convenience wrapper that only supports **file** mode in this module.
@@ -274,4 +288,4 @@ def run_job(
     if output_path is None:
         raise ValueError("For file pipelines, output_path is required.")
 
-    return run_file_job(cfg, input_path_or_stream, output_path)
+    return run_file_job(cfg, input_path_or_stream, output_path, progress_callback)

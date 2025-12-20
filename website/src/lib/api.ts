@@ -19,6 +19,7 @@ export interface MediaResponse {
   status: "created" | "processing" | "done" | "failed";
   progress: number;
   current_activity: string;
+  logs: string[];
   error_message?: string;
   created_at: string;
   updated_at: string;

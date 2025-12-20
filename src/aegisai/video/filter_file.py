@@ -95,6 +95,7 @@ def filter_video_file(
     sample_fps: float = DEFAULT_SAMPLE_FPS,
     max_workers: int | None = None,
     extend_intervals: bool = True,
+    progress_callback: Optional[callable] = None,
 ) -> Dict[str, Any]:
     """
     VIDEO moderation on a file with improved detection accuracy.
@@ -123,11 +124,16 @@ def filter_video_file(
         # ─────────────────────────────────────────────────────────
         # Step 1: Sample frames from the video file
         # ─────────────────────────────────────────────────────────
+        if progress_callback:
+            progress_callback(5, "Extracting frames...")
+        
         frames = extract_sampled_frames_from_file(
             video_path=input_path,
             output_dir=tmpdir,
             fps=sample_fps,
         )
+        if progress_callback:
+            progress_callback(10, f"Extracted {len(frames)} frames")
         print(f"[filter_video_file] Extracted {len(frames)} frames at {sample_fps} FPS")
 
         if not frames:
@@ -144,6 +150,8 @@ def filter_video_file(
             max_workers = min(24, len(frames))
 
         print(f"[filter_video_file] Analyzing frames with {max_workers} worker threads...")
+        if progress_callback:
+            progress_callback(15, "Starting SafeSearch analysis...")
 
         # ─────────────────────────────────────────────────────────
         # Step 2: Run frame moderation (SafeSearch + labels)
@@ -172,10 +180,20 @@ def filter_video_file(
             
             # Collect results in order
             frame_results_map = {}
+            total_frames = len(frames)
+            completed_count = 0
+            
             for fut in as_completed(futures):
                 frame_path, ts = futures[fut]
                 result = fut.result()
                 frame_results_map[round(ts, 3)] = result
+                completed_count += 1
+                
+                # Report progress every 10 frames or so to not spam DB
+                if progress_callback and (completed_count % 10 == 0 or completed_count == total_frames):
+                     # Scale 15% -> 60%
+                    pct = 15 + int((completed_count / total_frames) * 45)
+                    progress_callback(pct, f"Analyzing frame {completed_count}/{total_frames}")
             
             # Sort by timestamp
             for (frame_path, ts) in frames:
@@ -241,6 +259,8 @@ def filter_video_file(
         # So we keep localization for reporting, but not for blur.
         
         print("[filter_video_file] Running object localization...")
+        if progress_callback:
+            progress_callback(60, "Running object localization...")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -248,10 +268,19 @@ def filter_video_file(
                 for (frame_path, ts) in frames
             }
             
+            total_loc = len(frames)
+            completed_loc = 0
+
             for fut in as_completed(futures):
                 result = fut.result()
                 if result:
                     per_frame_boxes.append(result)
+                
+                completed_loc += 1
+                if progress_callback and (completed_loc % 20 == 0 or completed_loc == total_loc):
+                     # Scale 60% -> 80%
+                    pct = 60 + int((completed_loc / total_loc) * 20)
+                    progress_callback(pct, f"Localizing objects {completed_loc}/{total_loc}")
 
         # Sort by timestamp
         per_frame_boxes.sort(key=lambda x: x["timestamp"])
@@ -272,6 +301,8 @@ def filter_video_file(
         # Step 5: Render final video with full-screen blur
         # ─────────────────────────────────────────────────────────
         if output_path:
+            if progress_callback:
+                progress_callback(85, "Rendering final video...")
             blur_intervals_in_video(
                 video_path=input_path,
                 intervals=merged,
