@@ -55,7 +55,7 @@ export const InfoModal = ({ children, type }: InfoModalProps) => {
       sections: [
         {
           heading: "Moving to Microservices & Enhanced AI Detection",
-          subheading: "October 2023",
+          subheading: "November 2025",
           text: "We are excited to announce a major architectural shift for AegisAI. To ensure maximum reliability and scalability, we have transitioned to a microservices architecture. This allows us to handle video processing tasks more efficiently by distributing them across specialized workers."
         },
         {
