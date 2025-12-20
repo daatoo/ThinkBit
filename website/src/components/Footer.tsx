@@ -1,5 +1,6 @@
 import { Shield } from "lucide-react";
 import { LegalModal } from "./LegalModals";
+import { InfoModal } from "./InfoModals";
 
 const Footer = () => {
   return (
@@ -32,9 +33,27 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold text-foreground mb-4 text-sm uppercase tracking-wider">Company</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">About</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">Blog</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">Careers</a></li>
+              <li>
+                <InfoModal type="about">
+                  <button className="text-sm text-muted-foreground hover:text-primary transition-colors text-left">
+                    About
+                  </button>
+                </InfoModal>
+              </li>
+              <li>
+                <InfoModal type="blog">
+                  <button className="text-sm text-muted-foreground hover:text-primary transition-colors text-left">
+                    Blog
+                  </button>
+                </InfoModal>
+              </li>
+              <li>
+                <InfoModal type="careers">
+                  <button className="text-sm text-muted-foreground hover:text-primary transition-colors text-left">
+                    Careers
+                  </button>
+                </InfoModal>
+              </li>
             </ul>
           </div>
 
