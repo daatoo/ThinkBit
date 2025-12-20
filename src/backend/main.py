@@ -275,6 +275,8 @@ def run_pipeline_background(media_id: int, db: Session):
             except Exception as e:
                 logger.error(f"Error updating progress: {e}")
 
+        subtitle_path = Path(media.subtitle_path) if media.subtitle_path else None
+
         result = process_media(
             input_path=Path(media.input_path),
             input_type=media.input_type,
@@ -282,6 +284,7 @@ def run_pipeline_background(media_id: int, db: Session):
             filter_audio=media.filter_audio,
             filter_video=media.filter_video,
             progress_callback=progress_callback,
+            subtitle_path=subtitle_path,
         )
 
         media.output_path = result["output_path"]
@@ -317,6 +320,7 @@ def run_pipeline_background(media_id: int, db: Session):
 async def process_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    subtitle_file: UploadFile = File(None),
     filter_audio: bool = Query(True),
     filter_video: bool = Query(False),
     db: Session = Depends(get_db),
@@ -336,6 +340,27 @@ async def process_file(
         counter += 1
 
     upload_path.write_bytes(content)
+
+    subtitle_path_str = None
+    if subtitle_file and subtitle_file.filename:
+        # Validate extension
+        sub_ext = Path(subtitle_file.filename).suffix.lower()
+        if sub_ext not in {".srt", ".vtt"}:
+             raise HTTPException(status_code=400, detail=f"Invalid subtitle format: {sub_ext}")
+
+        # Save subtitle file
+        sub_content = await subtitle_file.read()
+        sub_name = Path(subtitle_file.filename)
+        sub_path = UPLOADS_DIR / f"{original_name.stem}_{sub_name.name}"
+
+        # Ensure unique name
+        sub_counter = 1
+        while sub_path.exists():
+             sub_path = UPLOADS_DIR / f"{original_name.stem}_{sub_counter}_{sub_name.name}"
+             sub_counter += 1
+
+        sub_path.write_bytes(sub_content)
+        subtitle_path_str = str(sub_path)
 
     input_type = _detect_input_type(upload_path)
     file_hash = _compute_file_hash(upload_path)
@@ -363,6 +388,7 @@ async def process_file(
         file_hash=file_hash,
         filter_audio=filter_audio,
         filter_video=filter_video,
+        subtitle_path=subtitle_path_str,
         status=ProcessStatus.CREATED,
         progress=0,
         current_activity="Queued",

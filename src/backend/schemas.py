@@ -22,6 +22,7 @@ class MediaResponse(BaseModel):
     input_type: str
     filter_audio: bool
     filter_video: bool
+    subtitle_path: Optional[str] = None
     status: str
     progress: int = 0
     current_activity: Optional[str] = None
