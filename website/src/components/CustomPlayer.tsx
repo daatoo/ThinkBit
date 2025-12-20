@@ -26,6 +26,7 @@ const CustomPlayer = ({
 }: CustomPlayerProps) => {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const prevSrcRef = useRef<string | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(initialIsPlaying);
   const [progress, setProgress] = useState(0);
@@ -69,27 +70,30 @@ const CustomPlayer = ({
   // Handle src changes and initialization
   useEffect(() => {
     if (mediaRef.current) {
-        // If initialTime is provided and > 0, we set it.
-        // Note: This runs on mount too because of [src].
-        // If it's a new src but we want to reset, caller should not pass initialTime (or pass 0).
-        // But here we rely on the prop.
+        // Check if src has changed or if it's the first mount
+        const srcChanged = src !== prevSrcRef.current;
 
-        mediaRef.current.currentTime = initialTime;
-        setCurrentTime(initialTime);
+        if (srcChanged) {
+            // If initialTime is provided and > 0, we set it.
+            mediaRef.current.currentTime = initialTime;
+            setCurrentTime(initialTime);
 
-        // Recalculate progress if duration is known (might not be yet)
-        if (mediaRef.current.duration) {
-            setProgress((initialTime / mediaRef.current.duration) * 100);
-        } else {
-            setProgress(0);
-        }
+            // Recalculate progress if duration is known (might not be yet)
+            if (mediaRef.current.duration) {
+                setProgress((initialTime / mediaRef.current.duration) * 100);
+            } else {
+                setProgress(0);
+            }
 
-        if (initialIsPlaying) {
-             mediaRef.current.play().catch(e => console.error("Auto-play failed:", e));
-             setIsPlaying(true);
-        } else {
-             setIsPlaying(false);
-             mediaRef.current.pause();
+            if (initialIsPlaying) {
+                mediaRef.current.play().catch(e => console.error("Auto-play failed:", e));
+                setIsPlaying(true);
+            } else {
+                setIsPlaying(false);
+                mediaRef.current.pause();
+            }
+
+            prevSrcRef.current = src;
         }
     }
   }, [src, initialTime, initialIsPlaying]);
@@ -208,7 +212,10 @@ const CustomPlayer = ({
           crossOrigin="anonymous"
         />
       ) : (
-        <div className="flex items-center justify-center min-h-[150px] bg-gradient-to-br from-secondary/10 to-primary/5 relative overflow-hidden">
+        <div
+            className="flex items-center justify-center w-full h-full bg-gradient-to-br from-secondary/10 to-primary/5 relative overflow-hidden cursor-pointer"
+            onClick={togglePlay}
+        >
              {/* Visualizer Background */}
              <div className="absolute inset-0 z-0 flex items-center justify-center opacity-80 pointer-events-none">
                  <AudioVisualizer
