@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Download, Play, Pause, Volume2, VolumeX, RotateCcw, Check, Share2, Maximize2 } from "lucide-react";
+import { Download, RotateCcw, Check, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
 import { getDownloadUrl } from "@/lib/api";
+import CustomPlayer from "./CustomPlayer";
 
 interface OutputPreviewProps {
   fileName: string;
@@ -13,18 +13,15 @@ interface OutputPreviewProps {
 }
 
 const OutputPreview = ({ fileName, fileType, filterMode, onReset, mediaId }: OutputPreviewProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration] = useState(180); // Mock duration
+  const [viewMode, setViewMode] = useState<"original" | "filtered">("filtered");
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  const toggleViewMode = () => {
+    setViewMode((prev) => (prev === "filtered" ? "original" : "filtered"));
   };
 
-  const progress = (currentTime / duration) * 100;
+  const downloadUrl = viewMode === "filtered"
+    ? getDownloadUrl(mediaId, "processed")
+    : getDownloadUrl(mediaId, "original");
 
   return (
     <div className="space-y-6">
@@ -40,45 +37,30 @@ const OutputPreview = ({ fileName, fileType, filterMode, onReset, mediaId }: Out
       </div>
 
       {/* Preview player */}
-      <div className="relative rounded-2xl overflow-hidden bg-secondary/50 border border-border/50">
-        {fileType === "video" ? (
-          <div className="aspect-video bg-gradient-to-br from-secondary to-background flex items-center justify-center relative group">
-            {/* Use actual video element if mediaId is present, else placeholder */}
-            <video
-                src={getDownloadUrl(mediaId)}
-                className="w-full h-full object-contain"
-                controls
-            >
-                Your browser does not support the video tag.
-            </video>
-
-            {/* Fullscreen button */}
-            <button className="absolute top-4 right-4 w-10 h-10 rounded-lg bg-background/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Maximize2 className="w-4 h-4 text-foreground" />
-            </button>
-          </div>
-        ) : (
-          <div className="p-8 flex flex-col items-center justify-center min-h-[200px]">
-             <audio
-                src={getDownloadUrl(mediaId)}
-                controls
-                className="w-full"
-            >
-                Your browser does not support the audio tag.
-            </audio>
-          </div>
-        )}
-
-        {/* Custom controls removed in favor of native controls for simplicity and robustness with actual media */}
-      </div>
+      <CustomPlayer
+        key={viewMode} // Re-mount on mode change to reset state
+        src={downloadUrl}
+        type={fileType}
+        className="w-full aspect-video"
+      />
 
       {/* Comparison toggle */}
-      <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/30 border border-border/30">
-        <span className="text-sm text-muted-foreground">Original</span>
-        <div className="w-12 h-6 rounded-full bg-primary/20 p-1 cursor-pointer">
-          <div className="w-4 h-4 rounded-full bg-primary translate-x-6 transition-transform" />
-        </div>
-        <span className="text-sm text-foreground font-medium">Filtered</span>
+      <div className="flex items-center justify-center gap-3 p-3 rounded-xl bg-secondary/10 border border-border/30">
+        <span className={cn("text-sm transition-colors", viewMode === "original" ? "text-foreground font-medium" : "text-muted-foreground")}>Original</span>
+
+        <button
+            onClick={toggleViewMode}
+            className="w-12 h-6 rounded-full bg-primary/20 p-1 cursor-pointer relative transition-colors hover:bg-primary/30"
+        >
+          <div
+            className={cn(
+                "w-4 h-4 rounded-full bg-primary shadow-[0_0_10px_theme(colors.primary.DEFAULT)] transition-transform duration-300",
+                viewMode === "filtered" ? "translate-x-6" : "translate-x-0"
+            )}
+          />
+        </button>
+
+        <span className={cn("text-sm transition-colors", viewMode === "filtered" ? "text-foreground font-medium" : "text-muted-foreground")}>Filtered</span>
       </div>
 
       {/* Action buttons */}

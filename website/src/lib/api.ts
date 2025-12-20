@@ -83,8 +83,8 @@ export async function deleteMedia(mediaId: number): Promise<MessageResponse> {
   return response.json();
 }
 
-export function getDownloadUrl(mediaId: number): string {
-  return `${API_BASE_URL}/download/${mediaId}`;
+export function getDownloadUrl(mediaId: number, variant: "original" | "processed" = "processed"): string {
+  return `${API_BASE_URL}/download/${mediaId}?variant=${variant}`;
 }
 
 export async function listMedia(status?: string): Promise<MediaResponse[]> {
