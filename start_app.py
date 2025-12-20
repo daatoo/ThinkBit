@@ -226,7 +226,7 @@ def start_frontend():
     """Start the frontend server"""
     global frontend_process
     
-    print("🎨 Starting frontend server (port 8080)...")
+    print("🎨 Starting frontend server (port 3000)...")
     
     # On Windows, use shell=True and cmd.exe
     if sys.platform == "win32":
