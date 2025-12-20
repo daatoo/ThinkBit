@@ -16,6 +16,7 @@ import threading
 
 from src.aegisai.audio.text_buffer import TextBuffer
 from src.aegisai.audio.workers import audio_worker
+from pydub import AudioSegment
 
 Interval = Tuple[float, float]
 
@@ -26,13 +27,15 @@ def _mute_intervals_in_audio_file(
     output_audio_path: str,
 ) -> None:
     """
-    Apply muting to an audio-only file using ffmpeg.
+    Apply muting to an audio-only file using pydub for precise control.
+    Applies fade out/in to avoid popping artifacts.
 
     If intervals is empty, the input is simply copied to output_audio_path.
 
     NOTE: This function assumes `audio_path` is an audio file
-    (e.g. .wav, .mp3, .m4a). It does NOT handle video containers.
+    (e.g. .wav, .mp3, .m4a).
     """
+
     if not intervals:
         subprocess.run(
             ["ffmpeg", "-y", "-i", audio_path, "-c", "copy", output_audio_path],
@@ -40,26 +43,63 @@ def _mute_intervals_in_audio_file(
         )
         return
 
-    volume_filters = []
-    for start, end in intervals:
-        volume_filters.append(
-            f"volume=enable='between(t,{start:.3f},{end:.3f})':volume=0"
-        )
+    # Load audio
+    original_audio = AudioSegment.from_file(audio_path)
+    total_duration_ms = len(original_audio)
 
-    af_filter = ",".join(volume_filters)
+    # Create silence chunk for muting (or use original_audio[s:e] - 100dB)
+    # But here we just want silence.
 
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        audio_path,
-        "-af",
-        af_filter,
-        "-c:a",
-        "aac",  # re-encode audio; you can tune codec later
-        output_audio_path,
-    ]
-    subprocess.run(cmd, check=True)
+    # Process intervals:
+    # We will construct the final audio by concatenating "clean" chunks.
+    # To handle overlapping or out-of-order intervals, they must be sorted and merged (which they are).
+
+    final_audio = AudioSegment.empty()
+    last_pos_ms = 0
+    fade_duration_ms = 20 # 20ms fade
+
+    for start_sec, end_sec in intervals:
+        start_ms = int(start_sec * 1000)
+        end_ms = int(end_sec * 1000)
+
+        # Clamp to audio duration
+        start_ms = max(0, min(start_ms, total_duration_ms))
+        end_ms = max(0, min(end_ms, total_duration_ms))
+
+        if end_ms <= start_ms:
+            continue
+
+        # Append clean audio from last_pos to start
+        if start_ms > last_pos_ms:
+            clean_chunk = original_audio[last_pos_ms:start_ms]
+            # Fade out at the end of the clean chunk
+            if len(clean_chunk) > fade_duration_ms:
+                clean_chunk = clean_chunk.fade_out(fade_duration_ms)
+            final_audio += clean_chunk
+
+        # Mute period (append silence)
+        mute_duration = end_ms - start_ms
+        silence_chunk = AudioSegment.silent(duration=mute_duration)
+        final_audio += silence_chunk
+
+        last_pos_ms = end_ms
+
+    # Append remaining audio
+    if last_pos_ms < total_duration_ms:
+        remaining = original_audio[last_pos_ms:]
+        # Fade in at start of remaining
+        if len(remaining) > fade_duration_ms and last_pos_ms > 0:
+             remaining = remaining.fade_in(fade_duration_ms)
+        final_audio += remaining
+
+    # Export
+    # Determine format from extension or default to mp3/aac
+    ext = os.path.splitext(output_audio_path)[1].lower().replace(".", "")
+    if not ext:
+        ext = "mp3"
+
+    # Pydub export
+    final_audio.export(output_audio_path, format=ext)
 
 
 def filter_audio_file(
