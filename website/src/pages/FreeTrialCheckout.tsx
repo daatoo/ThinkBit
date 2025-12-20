@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CreditCard, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { CreditCard, CheckCircle2, ShieldCheck, Zap, Lock, Globe, Server } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const FreeTrialCheckout = () => {
@@ -48,16 +49,16 @@ const FreeTrialCheckout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-x-hidden">
+    <div className="min-h-screen bg-background relative overflow-x-hidden selection:bg-primary/30 selection:text-white">
       {/* Background Grid Animation */}
-      <div className="fixed inset-0 bg-grid-white/[0.02] bg-[size:50px_50px] pointer-events-none" />
-      <div className="fixed inset-0 bg-gradient-to-b from-transparent to-background pointer-events-none" />
+      <div className="fixed inset-0 retro-grid opacity-20 pointer-events-none" />
+      <div className="fixed inset-0 bg-gradient-to-b from-background/50 via-transparent to-background pointer-events-none" />
 
       {/* Animated Glow Orbs */}
-      <div className="fixed top-20 left-20 w-64 h-64 bg-primary/20 rounded-full blur-[100px] animate-pulse" />
-      <div className="fixed bottom-20 right-20 w-64 h-64 bg-secondary/20 rounded-full blur-[100px] animate-pulse delay-700" />
+      <div className="fixed top-20 left-20 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+      <div className="fixed bottom-20 right-20 w-96 h-96 bg-secondary/10 rounded-full blur-[120px] animate-pulse delay-700" />
 
-      <div className="relative z-10 container mx-auto px-4 py-12">
+      <div className="relative z-10 container mx-auto px-4 py-12 animate-in fade-in zoom-in duration-500">
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
 
           {/* Left Column: Visuals & Benefits */}
@@ -94,10 +95,16 @@ const FreeTrialCheckout = () => {
               </ul>
             </div>
 
-            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm text-primary-foreground/80 flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                <strong>Fast & Secure:</strong> Your data is encrypted and processed with industry-leading security standards.
+            <div className="p-6 rounded-xl bg-primary/10 border border-primary/50 shadow-[0_0_30px_-5px_hsl(320,100%,55%,0.3)] backdrop-blur-sm relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <p className="text-base text-white flex items-start gap-3 relative z-10">
+                <div className="p-2 rounded-full bg-primary/20 text-primary">
+                  <ShieldCheck className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <strong className="text-primary text-lg block mb-1">Fast & Secure</strong>
+                  <span className="text-gray-100/90 leading-relaxed">Your data is encrypted and processed with industry-leading security standards.</span>
+                </div>
               </p>
             </div>
           </div>
@@ -117,16 +124,16 @@ const FreeTrialCheckout = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" placeholder="Jane" required className="bg-background/50 border-input/50 focus:border-primary/50" />
+                        <Input id="firstName" placeholder="Jane" required className="bg-background/50 border-input/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" placeholder="Doe" required className="bg-background/50 border-input/50 focus:border-primary/50" />
+                        <Input id="lastName" placeholder="Doe" required className="bg-background/50 border-input/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" type="email" placeholder="jane@example.com" required className="bg-background/50 border-input/50 focus:border-primary/50" />
+                      <Input id="email" type="email" placeholder="jane@example.com" required className="bg-background/50 border-input/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" />
                     </div>
                   </div>
 
@@ -144,17 +151,17 @@ const FreeTrialCheckout = () => {
                           <Label htmlFor="cardNumber">Card Number</Label>
                           <div className="relative">
                             <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input id="cardNumber" placeholder="0000 0000 0000 0000" className="pl-10 bg-background/50 border-input/50 focus:border-primary/50" />
+                            <Input id="cardNumber" placeholder="0000 0000 0000 0000" className="pl-10 bg-background/50 border-input/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="expiry">Expiry Date</Label>
-                            <Input id="expiry" placeholder="MM/YY" className="bg-background/50 border-input/50 focus:border-primary/50" />
+                            <Input id="expiry" placeholder="MM/YY" className="bg-background/50 border-input/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="cvc">CVC</Label>
-                            <Input id="cvc" placeholder="123" className="bg-background/50 border-input/50 focus:border-primary/50" />
+                            <Input id="cvc" placeholder="123" className="bg-background/50 border-input/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" />
                           </div>
                         </div>
                       </TabsContent>
@@ -193,6 +200,123 @@ const FreeTrialCheckout = () => {
             </Card>
           </div>
         </div>
+
+        {/* Testimonials Section */}
+        <div className="mt-20 space-y-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold">Trusted by <span className="text-primary">Creators</span></h2>
+            <p className="text-muted-foreground">Join thousands of others transforming their media.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Alex Rivera",
+                role: "Content Creator",
+                quote: "AegisAI completely transformed my workflow. The processing speed is unreal.",
+                initials: "AR"
+              },
+              {
+                name: "Sarah Chen",
+                role: "Podcast Host",
+                quote: "The best investment I've made for my channel. Simple, fast, and reliable.",
+                initials: "SC"
+              },
+              {
+                name: "Mike Ross",
+                role: "Video Editor",
+                quote: "Finally, a tool that actually does what it promises. Worth every penny.",
+                initials: "MR"
+              }
+            ].map((t, i) => (
+              <div key={i} className="glass-card p-6 space-y-4 hover:border-primary/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white">
+                    {t.initials}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-white">{t.name}</h4>
+                    <p className="text-xs text-muted-foreground">{t.role}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-300 italic">"{t.quote}"</p>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Zap key={s} className="w-3 h-3 text-secondary fill-secondary" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="mt-20 max-w-3xl mx-auto space-y-8 pb-20">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold">Frequently Asked <span className="text-secondary">Questions</span></h2>
+            <p className="text-muted-foreground">Everything you need to know about the trial.</p>
+          </div>
+
+          <Accordion type="single" collapsible className="w-full space-y-4">
+            <AccordionItem value="item-1" className="border border-white/10 rounded-lg px-4 bg-white/5 data-[state=open]:border-primary/50 transition-colors">
+              <AccordionTrigger className="text-lg hover:no-underline hover:text-primary">
+                Is the free trial really free?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes! You get full access to all premium features for 7 days. You won't be charged until the trial period ends.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-2" className="border border-white/10 rounded-lg px-4 bg-white/5 data-[state=open]:border-primary/50 transition-colors">
+              <AccordionTrigger className="text-lg hover:no-underline hover:text-primary">
+                Can I cancel anytime?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Absolutely. You can cancel your subscription from your dashboard at any time. If you cancel during the trial, you won't be charged.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-3" className="border border-white/10 rounded-lg px-4 bg-white/5 data-[state=open]:border-primary/50 transition-colors">
+              <AccordionTrigger className="text-lg hover:no-underline hover:text-primary">
+                What payment methods do you accept?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                We accept all major credit cards (Visa, Mastercard, Amex) and PayPal. All payments are securely processed.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-4" className="border border-white/10 rounded-lg px-4 bg-white/5 data-[state=open]:border-primary/50 transition-colors">
+              <AccordionTrigger className="text-lg hover:no-underline hover:text-primary">
+                Do I need to install anything?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                No software installation is required. AegisAI runs entirely in your browser using cloud processing.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+
+        {/* Trust Badges Section */}
+        <div className="mt-20 pt-10 border-t border-white/10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {[
+              { icon: Lock, label: "SSL Encrypted", sub: "256-bit Protection" },
+              { icon: Globe, label: "Global CDN", sub: "Lightning Fast" },
+              { icon: Server, label: "99.9% Uptime", sub: "Enterprise SLA" },
+              { icon: ShieldCheck, label: "GDPR Ready", sub: "Data Compliance" }
+            ].map((badge, i) => (
+              <div key={i} className="flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-white/5 transition-colors group">
+                <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <badge.icon className="w-6 h-6 text-secondary" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white">{badge.label}</h4>
+                  <p className="text-xs text-muted-foreground">{badge.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );
