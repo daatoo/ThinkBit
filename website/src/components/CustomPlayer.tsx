@@ -135,6 +135,7 @@ const CustomPlayer = ({
   };
 
   const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation(); // Stop bubbling to prevent togglePlay
       setIsDragging(true);
       updateSeek(e.clientX);
   };
