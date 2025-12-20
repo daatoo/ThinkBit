@@ -8,17 +8,30 @@ interface CustomPlayerProps {
   type: "audio" | "video";
   poster?: string;
   className?: string;
+  initialTime?: number;
+  initialIsPlaying?: boolean;
+  onTimeUpdate?: (time: number) => void;
+  onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
-const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
+const CustomPlayer = ({
+  src,
+  type,
+  poster,
+  className,
+  initialTime = 0,
+  initialIsPlaying = false,
+  onTimeUpdate,
+  onPlayStateChange
+}: CustomPlayerProps) => {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(initialIsPlaying);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(initialTime);
   const [duration, setDuration] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<'bars' | 'wave' | 'oscilloscope'>('bars');
@@ -33,10 +46,14 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
         setCurrentTime(media.currentTime);
         setDuration(media.duration || 0);
         setProgress((media.currentTime / media.duration) * 100);
+        if (onTimeUpdate) onTimeUpdate(media.currentTime);
       }
     };
 
-    const handleEnded = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      if (onPlayStateChange) onPlayStateChange(false);
+    };
 
     media.addEventListener("timeupdate", updateTime);
     media.addEventListener("loadedmetadata", updateTime);
@@ -47,27 +64,46 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
       media.removeEventListener("loadedmetadata", updateTime);
       media.removeEventListener("ended", handleEnded);
     };
-  }, [src]);
+  }, [src, isDragging, onTimeUpdate, onPlayStateChange]);
 
-  // Reset state when src changes
+  // Handle src changes and initialization
   useEffect(() => {
-    setIsPlaying(false);
-    setProgress(0);
-    setCurrentTime(0);
     if (mediaRef.current) {
-        mediaRef.current.currentTime = 0;
-        // Auto-play could be added here if desired, but typically better to wait for user interaction
+        // If initialTime is provided and > 0, we set it.
+        // Note: This runs on mount too because of [src].
+        // If it's a new src but we want to reset, caller should not pass initialTime (or pass 0).
+        // But here we rely on the prop.
+
+        mediaRef.current.currentTime = initialTime;
+        setCurrentTime(initialTime);
+
+        // Recalculate progress if duration is known (might not be yet)
+        if (mediaRef.current.duration) {
+            setProgress((initialTime / mediaRef.current.duration) * 100);
+        } else {
+            setProgress(0);
+        }
+
+        if (initialIsPlaying) {
+             mediaRef.current.play().catch(e => console.error("Auto-play failed:", e));
+             setIsPlaying(true);
+        } else {
+             setIsPlaying(false);
+             mediaRef.current.pause();
+        }
     }
-  }, [src]);
+  }, [src, initialTime, initialIsPlaying]);
 
   const togglePlay = () => {
     if (!mediaRef.current) return;
+    const newIsPlaying = !isPlaying;
     if (isPlaying) {
       mediaRef.current.pause();
     } else {
       mediaRef.current.play();
     }
-    setIsPlaying(!isPlaying);
+    setIsPlaying(newIsPlaying);
+    if (onPlayStateChange) onPlayStateChange(newIsPlaying);
   };
 
   const toggleVisualizerMode = () => {
@@ -78,6 +114,9 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
 
   const updateSeek = (clientX: number) => {
       if (!mediaRef.current || !progressBarRef.current) return;
+      // Guard against invalid duration
+      if (!mediaRef.current.duration || isNaN(mediaRef.current.duration)) return;
+
       const rect = progressBarRef.current.getBoundingClientRect();
       const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 
@@ -144,12 +183,11 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
 
   const toggleFullscreen = () => {
       if (!mediaRef.current) return;
-      // This is a bit tricky for custom controls, usually you fullscreen the container.
-      // For simplicity, we'll just try to request fullscreen on the video element itself
-      // but that might show native controls depending on browser.
-      // Better to fullscreen a wrapper div.
       const container = mediaRef.current.parentElement;
-      if (container && container.requestFullscreen) {
+
+      if (document.fullscreenElement) {
+          document.exitFullscreen();
+      } else if (container && container.requestFullscreen) {
           container.requestFullscreen();
       }
   };
@@ -231,7 +269,7 @@ const CustomPlayer = ({ src, type, poster, className }: CustomPlayerProps) => {
                         step="0.05"
                         value={isMuted ? 0 : volume}
                         onChange={handleVolumeChange}
-                        className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                        className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-lg appearance-none cursor-pointer shadow-[0_0_10px_theme(colors.primary.DEFAULT)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_5px_rgba(255,255,255,0.8)]"
                     />
                 </div>
 

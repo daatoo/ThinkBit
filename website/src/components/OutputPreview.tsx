@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Download, RotateCcw, Check, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDownloadUrl } from "@/lib/api";
@@ -14,9 +14,19 @@ interface OutputPreviewProps {
 
 const OutputPreview = ({ fileName, fileType, filterMode, onReset, mediaId }: OutputPreviewProps) => {
   const [viewMode, setViewMode] = useState<"original" | "filtered">("filtered");
+  const timeRef = useRef(0);
+  const isPlayingRef = useRef(false);
 
   const toggleViewMode = () => {
     setViewMode((prev) => (prev === "filtered" ? "original" : "filtered"));
+  };
+
+  const handleTimeUpdate = (time: number) => {
+    timeRef.current = time;
+  };
+
+  const handlePlayStateChange = (playing: boolean) => {
+    isPlayingRef.current = playing;
   };
 
   const downloadUrl = viewMode === "filtered"
@@ -42,6 +52,10 @@ const OutputPreview = ({ fileName, fileType, filterMode, onReset, mediaId }: Out
         src={downloadUrl}
         type={fileType}
         className="w-full aspect-video"
+        initialTime={timeRef.current}
+        initialIsPlaying={isPlayingRef.current}
+        onTimeUpdate={handleTimeUpdate}
+        onPlayStateChange={handlePlayStateChange}
       />
 
       {/* Comparison toggle */}
