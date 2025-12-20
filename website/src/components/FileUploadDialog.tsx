@@ -289,7 +289,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
                           or <span className="text-primary">browse files</span>
                         </p>
                         <p className="text-xs text-muted-foreground/60 mt-3">
-                          {isAudio ? "MP3, WAV, AAC • Max 500MB" : "MP4, MOV, AVI • Max 2GB"}
+                          {isAudio ? "MP3, WAV, AAC • Max 500MB" : "MP4, MOV, AVI, WEBM • Max 2GB"}
                         </p>
                       </div>
                     )}
@@ -336,7 +336,7 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
             fileType={isAudio ? "audio" : "video"}
             filterMode={filterMode?.label || ""}
             onReset={handleReset}
-            media={processedMedia}
+            mediaId={processedMedia.id}
           />
         )}
       </DialogContent>

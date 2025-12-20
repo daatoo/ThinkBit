@@ -26,9 +26,10 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 OUTPUTS_DIR = BASE_DIR / "outputs"
 
 MAX_FILE_SIZE = 500 * 1024 * 1024
-ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".wav", ".mp3", ".flac", ".m4a"}
+ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".wav", ".mp3", ".flac", ".m4a", ".webm"}
 ALLOWED_MIMETYPES = {"video/mp4", "video/quicktime", "video/x-matroska", "video/x-msvideo", 
-                     "audio/wav", "audio/mpeg", "audio/flac", "audio/x-m4a", "audio/mp4"}
+                     "audio/wav", "audio/mpeg", "audio/flac", "audio/x-m4a", "audio/mp4",
+                     "video/webm", "audio/webm"}
 
 
 def _ensure_directories():
@@ -40,7 +41,7 @@ def _detect_input_type(path: Path) -> str:
     ext = path.suffix.lower()
     if ext in {".wav", ".mp3", ".flac", ".m4a"}:
         return "audio"
-    if ext in {".mp4", ".mov", ".mkv", ".avi"}:
+    if ext in {".mp4", ".mov", ".mkv", ".avi", ".webm"}:
         return "video"
     return "video"
 
