@@ -27,6 +27,7 @@ type DialogState = "upload" | "processing" | "preview";
 
 const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogProps) => {
   const [dragActive, setDragActive] = useState(false);
+  const [subtitleDragActive, setSubtitleDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
   const [dialogState, setDialogState] = useState<DialogState>("upload");
@@ -56,6 +57,30 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setSelectedFile(e.dataTransfer.files[0]);
+    }
+  }, []);
+
+  const handleSubtitleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setSubtitleDragActive(true);
+    } else if (e.type === "dragleave") {
+      setSubtitleDragActive(false);
+    }
+  }, []);
+
+  const handleSubtitleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSubtitleDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.name.endsWith(".srt") || file.name.endsWith(".vtt")) {
+        setSubtitleFile(file);
+      } else {
+        toast.error("Only .srt and .vtt subtitle files are supported");
+      }
     }
   }, []);
 
@@ -323,16 +348,28 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
                         className="hidden"
                       />
                       <div
-                        className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer"
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-xl border transition-all duration-300 cursor-pointer",
+                          subtitleDragActive
+                            ? "border-primary bg-primary/10 scale-[1.02]"
+                            : "bg-secondary/30 border-border/50 hover:bg-secondary/50"
+                        )}
+                        onDragEnter={handleSubtitleDrag}
+                        onDragLeave={handleSubtitleDrag}
+                        onDragOver={handleSubtitleDrag}
+                        onDrop={handleSubtitleDrop}
                         onClick={() => subtitleInputRef.current?.click()}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors",
+                             subtitleDragActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                          )}>
                             CC
                           </div>
                           <div className="text-left">
                             <p className="text-sm font-medium text-foreground">
-                              {subtitleFile ? subtitleFile.name : "Upload Subtitles (Optional)"}
+                              {subtitleFile ? subtitleFile.name : (subtitleDragActive ? "Drop subtitle file" : "Upload Subtitles (Optional)")}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {subtitleFile ? `${(subtitleFile.size / 1024).toFixed(1)} KB` : ".SRT or .VTT file"}
