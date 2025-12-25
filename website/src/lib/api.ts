@@ -1,5 +1,9 @@
-// export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-export const API_BASE_URL = "http://localhost:8000";
+// In prod (nginx), use same-origin /api
+// In dev (vite), you can still set VITE_API_URL=http://localhost:8000 if you want,
+// but simplest is also /api + vite proxy.
+export const API_BASE_URL =
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
+  "http://localhost:8000";
 
 // Auth token management
 const TOKEN_KEY = "auth_token";

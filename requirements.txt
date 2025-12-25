@@ -13,3 +13,4 @@ python-multipart>=0.0.9
 psycopg2-binary>=2.9.0
 pytest>=7.0.0
 opencv-python
+gunicorn
