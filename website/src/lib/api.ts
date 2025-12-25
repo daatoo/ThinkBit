@@ -1,5 +1,9 @@
-// export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-export const API_BASE_URL = "http://localhost:8080";
+// In prod (nginx), use same-origin /api
+// In dev (vite), you can still set VITE_API_URL=http://localhost:8080 if you want,
+// but simplest is also /api + vite proxy.
+export const API_BASE_URL =
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
+  "/api";
 
 export interface RawFileResponse {
   filename: string;

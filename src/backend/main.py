@@ -15,8 +15,11 @@ from sqlalchemy.orm import Session
 import sys
 
 # Force UTF-8 encoding for stdout/stderr on Windows to avoid charmap errors
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 
 from .db import get_db, init_db
 from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now
@@ -134,8 +137,12 @@ async def lifespan(app: FastAPI):
     logger.info("Backend stopped")
 
 
-app = FastAPI(title="AegisAI", version="1.0.0", lifespan=lifespan)
-
+app = FastAPI(
+    title="AegisAI",
+    version="1.0.0",
+    lifespan=lifespan,
+    root_path="/api",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

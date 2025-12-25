@@ -1,0 +1,13 @@
+.git
+.vscode
+__pycache__
+*.pyc
+.venv
+node_modules
+website/node_modules
+data/samples
+aegisai.db
+*.log
+src/backend/uploads
+src/backend/outputs
+backend.log
