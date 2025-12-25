@@ -20,10 +20,26 @@ class ProcessStatus:
     FAILED = "failed"
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    media: Mapped[list["ProcessedMedia"]] = relationship(
+        "ProcessedMedia", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
 class ProcessedMedia(Base):
     __tablename__ = "processed_media"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     input_path: Mapped[str] = mapped_column(String(512), nullable=False)
     output_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     input_type: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -39,6 +55,7 @@ class ProcessedMedia(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
+    user: Mapped["User"] = relationship("User", back_populates="media")
     segments: Mapped[list["CensorSegment"]] = relationship(
         "CensorSegment", back_populates="media", cascade="all, delete-orphan", lazy="selectin"
     )

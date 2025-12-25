@@ -1,10 +1,17 @@
-import { Shield, Menu } from "lucide-react";
+import { Shield, Menu, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import { InfoModal } from "./InfoModals";
 import { SignInModal, SignUpModal } from "./AuthModals";
+import { useAuth } from "@/hooks/use-auth";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, loading, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    window.location.reload();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -40,16 +47,34 @@ const Header = () => {
 
         {/* CTA */}
         <div className="hidden md:flex items-center gap-4">
-          <SignInModal>
-            <button className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2">
-              Sign In
-            </button>
-          </SignInModal>
-          <SignUpModal>
-            <button className="gradient-button text-sm px-5 py-2.5">
-              Get Started
-            </button>
-          </SignUpModal>
+          {!loading && user ? (
+            <>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <User className="w-4 h-4" />
+                <span>{user.email}</span>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <SignInModal>
+                <button className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2">
+                  Sign In
+                </button>
+              </SignInModal>
+              <SignUpModal>
+                <button className="gradient-button text-sm px-5 py-2.5">
+                  Get Started
+                </button>
+              </SignUpModal>
+            </>
+          )}
         </div>
 
         {/* Mobile menu button */}
@@ -74,12 +99,30 @@ const Header = () => {
               </button>
             </InfoModal>
             <hr className="border-border/50" />
-            <SignInModal>
-              <button className="text-sm text-muted-foreground hover:text-foreground text-left">Sign In</button>
-            </SignInModal>
-            <SignUpModal>
-              <button className="gradient-button text-sm">Get Started</button>
-            </SignUpModal>
+            {!loading && user ? (
+              <>
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span>{user.email}</span>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="text-sm text-muted-foreground hover:text-foreground text-left flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <SignInModal>
+                  <button className="text-sm text-muted-foreground hover:text-foreground text-left">Sign In</button>
+                </SignInModal>
+                <SignUpModal>
+                  <button className="gradient-button text-sm">Get Started</button>
+                </SignUpModal>
+              </>
+            )}
           </div>
         </div>
       )}

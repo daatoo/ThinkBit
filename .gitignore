@@ -43,9 +43,18 @@ htmlcov/
 *.tmp
 *.temp
 
+# Credentials and secrets
 aegis-key.json
-aegisai.db
-aegisai.db
-aegisai.db
+*.key.json
+credentials.json
+
+# Database files
 *.db
-*.db
+*.sqlite
+*.sqlite3
+
+# Uploads and outputs (user data)
+src/backend/uploads/*
+!src/backend/uploads/.gitkeep
+src/backend/outputs/*
+!src/backend/outputs/.gitkeep
