@@ -132,7 +132,7 @@ const PricingSection = () => {
                <div className="flex items-center gap-4 p-4 rounded-lg bg-background/50 border border-border/50">
                  <div className="text-left">
                    <p className="text-sm text-muted-foreground mb-1">Audio Intelligence</p>
-                   <p className="font-bold text-foreground text-lg">Google Cloud Speech-to-Text</p>
+                   <p className="font-bold text-foreground text-lg">OpenAI Whisper</p>
                  </div>
                </div>
             </div>
