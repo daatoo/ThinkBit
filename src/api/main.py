@@ -28,7 +28,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Check if FileHandler already exists to avoid duplicates on reload
-has_file_handler = any(isinstance(h, logging.FileHandler) and h.baseFilename.endswith("backend.log") for h in logger.handlers)
+has_file_handler = any(isinstance(h, logging.FileHandler) and "backend.log" in h.baseFilename for h in logger.handlers)
 
 if not has_file_handler:
     file_handler = logging.FileHandler("backend.log", mode='w')
@@ -482,4 +482,4 @@ async def process_file(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8080")), reload=True)
+    uvicorn.run("src.api.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8080")), reload=True)
