@@ -27,7 +27,7 @@ const PricingSection = () => {
 
              <h3 className="text-2xl font-bold text-foreground mb-2">Audio Intelligence</h3>
              <div className="flex items-baseline gap-1 mb-6">
-               <span className="text-4xl font-mono font-bold text-primary">$0.008</span>
+               <span className="text-4xl font-mono font-bold text-primary">$0.005</span>
                <span className="text-muted-foreground">/ minute</span>
              </div>
 
@@ -71,7 +71,7 @@ const PricingSection = () => {
 
              <h3 className="text-2xl font-bold text-foreground mb-2">Video Protection</h3>
              <div className="flex items-baseline gap-1 mb-6">
-               <span className="text-4xl font-mono font-bold text-secondary">$0.020</span>
+               <span className="text-4xl font-mono font-bold text-secondary">$0.5</span>
                <span className="text-muted-foreground">/ minute</span>
              </div>
 
@@ -132,7 +132,7 @@ const PricingSection = () => {
                <div className="flex items-center gap-4 p-4 rounded-lg bg-background/50 border border-border/50">
                  <div className="text-left">
                    <p className="text-sm text-muted-foreground mb-1">Audio Intelligence</p>
-                   <p className="font-bold text-foreground text-lg">OpenAI Whisper</p>
+                   <p className="font-bold text-foreground text-lg">Google Cloud Speech-to-text</p>
                  </div>
                </div>
             </div>
