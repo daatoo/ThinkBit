@@ -27,7 +27,7 @@ const PricingSection = () => {
 
              <h3 className="text-2xl font-bold text-foreground mb-2">Audio Intelligence</h3>
              <div className="flex items-baseline gap-1 mb-6">
-               <span className="text-4xl font-mono font-bold text-primary">$0.005</span>
+               <span className="text-4xl font-mono font-bold text-primary">$0.06</span>
                <span className="text-muted-foreground">/ minute</span>
              </div>
 
