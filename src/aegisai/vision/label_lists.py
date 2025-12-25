@@ -58,4 +58,7 @@ VIOLENCE_LABELS = {
     "Medical operation", "Surgery", "Open surgery",
     "Amputation", "Severe burn injuries",
     "Graphic content", "Graphic injury",
+
+    # --- DRUGS / SUBSTANCE ABUSE ---
+    "Drugs", "Marijuana", "Pot", "Smoke", "Cigarette", "Cigarettes"
 }
