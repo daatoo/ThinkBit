@@ -1,9 +1,108 @@
 // In prod (nginx), use same-origin /api
-// In dev (vite), you can still set VITE_API_URL=http://localhost:8080 if you want,
+// In dev (vite), you can still set VITE_API_URL=http://localhost:8000 if you want,
 // but simplest is also /api + vite proxy.
 export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  "/api";
+  "http://localhost:8000";
+
+// Auth token management
+const TOKEN_KEY = "auth_token";
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function removeToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getAuthHeaders(): HeadersInit {
+  const token = getToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+}
+
+// Auth interfaces
+export interface UserResponse {
+  id: number;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+// Auth API functions
+export async function login(credentials: LoginRequest): Promise<TokenResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Login failed" }));
+    throw new Error(error.detail || "Login failed");
+  }
+
+  const data: TokenResponse = await response.json();
+  setToken(data.access_token);
+  return data;
+}
+
+export async function register(data: RegisterRequest): Promise<UserResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Registration failed" }));
+    throw new Error(error.detail || "Registration failed");
+  }
+
+  return response.json();
+}
+
+export async function getCurrentUser(): Promise<UserResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized");
+    }
+    throw new Error("Failed to fetch user");
+  }
+
+  return response.json();
+}
+
+export function logout(): void {
+  removeToken();
+}
 
 export interface RawFileResponse {
   filename: string;
@@ -56,12 +155,23 @@ export async function uploadFile(
   params.append("filter_audio", filterAudio.toString());
   params.append("filter_video", filterVideo.toString());
 
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/process?${params.toString()}`, {
     method: "POST",
+    headers,
     body: formData,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
     const errorText = await response.text();
     throw new Error(`Upload failed: ${errorText}`);
   }
@@ -71,9 +181,14 @@ export async function uploadFile(
 export async function deleteRawFile(filename: string): Promise<MessageResponse> {
   const response = await fetch(`${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
     const errorText = await response.text();
     throw new Error(`Failed to delete raw file: ${errorText}`);
   }
@@ -81,13 +196,22 @@ export async function deleteRawFile(filename: string): Promise<MessageResponse> 
   return response.json();
 }
 export function getRawFileUrl(filename: string): string {
-  return `${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}`;
+  const token = getToken();
+  return token
+    ? `${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}?token=${token}`
+    : `${API_BASE_URL}/outputs/files/${encodeURIComponent(filename)}`;
 }
 
 export async function getMedia(mediaId: number): Promise<MediaResponse> {
-  const response = await fetch(`${API_BASE_URL}/media/${mediaId}`);
+  const response = await fetch(`${API_BASE_URL}/media/${mediaId}`, {
+    headers: getAuthHeaders(),
+  });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
     if (response.status === 404) {
       throw new Error("Media not found");
     }
@@ -101,9 +225,14 @@ export async function getMedia(mediaId: number): Promise<MediaResponse> {
 export async function deleteMedia(mediaId: number): Promise<MessageResponse> {
   const response = await fetch(`${API_BASE_URL}/media/${mediaId}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
     const errorText = await response.text();
     throw new Error(`Failed to delete media: ${errorText}`);
   }
@@ -112,7 +241,53 @@ export async function deleteMedia(mediaId: number): Promise<MessageResponse> {
 }
 
 export function getDownloadUrl(mediaId: number, variant: "original" | "processed" = "processed"): string {
-  return `${API_BASE_URL}/download/${mediaId}?variant=${variant}`;
+  // For video player, add token as query param (backend supports both header and query param)
+  const token = getToken();
+  return token
+    ? `${API_BASE_URL}/download/${mediaId}?variant=${variant}&token=${token}`
+    : `${API_BASE_URL}/download/${mediaId}?variant=${variant}`;
+}
+
+export async function getAuthenticatedVideoUrl(mediaId: number, variant: "original" | "processed" = "processed"): Promise<string> {
+  // Fetch video with auth and create blob URL for player
+  const response = await fetch(`${API_BASE_URL}/download/${mediaId}?variant=${variant}`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
+    throw new Error("Failed to load video");
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
+export async function downloadMedia(mediaId: number, variant: "original" | "processed" = "processed", filename?: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/download/${mediaId}?variant=${variant}`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
+    throw new Error("Download failed");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || `download_${mediaId}_${variant}.mp4`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
 }
 
 export async function listMedia(status?: string): Promise<MediaResponse[]> {
@@ -120,9 +295,15 @@ export async function listMedia(status?: string): Promise<MediaResponse[]> {
     ? `${API_BASE_URL}/media?status=${status}`
     : `${API_BASE_URL}/media`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: getAuthHeaders(),
+  });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
     const errorText = await response.text();
     throw new Error(`Failed to list media: ${errorText}`);
   }
@@ -132,11 +313,41 @@ export async function listMedia(status?: string): Promise<MediaResponse[]> {
 }
 
 export async function listRawFiles(): Promise<RawFileResponse[]> {
-  const response = await fetch(`${API_BASE_URL}/outputs/files`);
+  const response = await fetch(`${API_BASE_URL}/outputs/files`, {
+    headers: getAuthHeaders(),
+  });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
     const errorText = await response.text();
     throw new Error(`Failed to list raw files: ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export interface StatsResponse {
+  total_media: number;
+  total_segments: number;
+  by_status: Record<string, number>;
+  by_type: Record<string, number>;
+}
+
+export async function getStats(): Promise<StatsResponse> {
+  const response = await fetch(`${API_BASE_URL}/stats`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      throw new Error("Unauthorized - please login again");
+    }
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch stats: ${errorText}`);
   }
 
   return response.json();

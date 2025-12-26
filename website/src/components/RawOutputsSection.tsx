@@ -15,6 +15,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/use-auth";
+import { SignInModal } from "./AuthModals";
 
 const RawOutputsSection = () => {
     const [files, setFiles] = useState<RawFileResponse[]>([]);
@@ -23,7 +25,14 @@ const RawOutputsSection = () => {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [fileToDelete, setFileToDelete] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const { isAuthenticated, loading: authLoading } = useAuth();
+    
     const fetchFiles = async () => {
+        if (!isAuthenticated) {
+            setLoading(false);
+            return;
+        }
+        
         try {
             const data = await listRawFiles();
             // Sort by newest first
@@ -40,11 +49,13 @@ const RawOutputsSection = () => {
     };
 
     useEffect(() => {
-        fetchFiles();
-        // Poll for updates every 10 seconds
-        const interval = setInterval(fetchFiles, 10000);
-        return () => clearInterval(interval);
-    }, []);
+        if (!authLoading) {
+            fetchFiles();
+            // Poll for updates every 10 seconds
+            const interval = setInterval(fetchFiles, 10000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, authLoading]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -62,6 +73,32 @@ const RawOutputsSection = () => {
         }
         return 'video';
     };
+
+    if (authLoading || (loading && files.length === 0)) {
+        return null;
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <section id="raw-outputs" className="py-12 px-8 relative overflow-hidden bg-black/20">
+                <div className="max-w-6xl mx-auto">
+                    <div className="text-center py-12">
+                        <h3 className="text-xl font-bold mb-4 text-muted-foreground">
+                            Raw Output Files
+                        </h3>
+                        <p className="text-muted-foreground mb-6">
+                            Please sign in to view your output files.
+                        </p>
+                        <SignInModal>
+                            <button className="gradient-button px-6 py-3">
+                                Sign In
+                            </button>
+                        </SignInModal>
+                    </div>
+                </div>
+            </section>
+        );
+    }
 
     if (!loading && files.length === 0) {
         return null;

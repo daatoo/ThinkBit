@@ -6,12 +6,18 @@ import os
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
+from dotenv import load_dotenv
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
+# Load environment variables from .env file
+load_dotenv()
+
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
+from jose import jwt, JWTError
 import sys
 
 # Force UTF-8 encoding for stdout/stderr on Windows to avoid charmap errors
@@ -22,9 +28,11 @@ if hasattr(sys.stderr, "reconfigure"):
 
 
 from .db import get_db, init_db
-from .models import CensorSegment, ProcessStatus, ProcessedMedia, utc_now
-from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, RawFileResponse, SegmentResponse, StatsResponse
+from .models import CensorSegment, ProcessStatus, ProcessedMedia, User, utc_now
+from .schemas import HealthResponse, MediaListResponse, MediaResponse, MessageResponse, RawFileResponse, SegmentResponse, StatsResponse, Token, UserLogin, UserRegister, UserResponse
 from .services.pipeline_wrapper import process_media
+from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash, get_user_by_email, SECRET_KEY, ALGORITHM
+from datetime import timedelta
 
 # Configure logging explicitly to ensure FileHandler is attached even if Uvicorn configures the root logger
 logger = logging.getLogger()
@@ -119,13 +127,27 @@ def _to_response(media: ProcessedMedia) -> MediaResponse:
 
 
 def _validate_upload(filename: str, content_type: str | None, size: int) -> None:
+    """Validate uploaded file with security checks."""
+    # Security: Prevent path traversal and malicious filenames
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Validate extension
     ext = Path(filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type not allowed: {ext}")
+    
+    # Validate MIME type
     if content_type and content_type not in ALLOWED_MIMETYPES:
         raise HTTPException(status_code=400, detail=f"Invalid content type: {content_type}")
+    
+    # Validate file size
     if size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail=f"File too large. Max: {MAX_FILE_SIZE // (1024*1024)}MB")
+    
+    # Additional security: reject empty files
+    if size == 0:
+        raise HTTPException(status_code=400, detail="Empty files not allowed")
 
 
 @asynccontextmanager
@@ -157,21 +179,89 @@ def health():
     return HealthResponse(status="ok")
 
 
+# Authentication endpoints
+@app.post("/auth/register", response_model=UserResponse, status_code=201)
+def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    """Register a new user."""
+    # Check if user already exists
+    existing_user = get_user_by_email(db, user_data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(
+        email=user_data.email,
+        hashed_password=hashed_password,
+        is_active=True
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return UserResponse(
+        id=new_user.id,
+        email=new_user.email,
+        is_active=new_user.is_active,
+        created_at=new_user.created_at
+    )
+
+
+@app.post("/auth/login", response_model=Token)
+def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
+    """Login and get access token."""
+    user = authenticate_user(db, user_credentials.email, user_credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=60 * 24)  # 24 hours
+    access_token = create_access_token(
+        data={"sub": user.id}, expires_delta=access_token_expires
+    )
+    return Token(access_token=access_token, token_type="bearer")
+
+
+@app.get("/auth/me", response_model=UserResponse)
+def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """Get current user information."""
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at
+    )
+
+
 @app.get("/stats", response_model=StatsResponse)
-def get_stats(db: Session = Depends(get_db)):
-    total_media = db.query(ProcessedMedia).count()
-    total_segments = db.query(CensorSegment).count()
+def get_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get statistics for the current user's media."""
+    query = db.query(ProcessedMedia).filter(ProcessedMedia.user_id == current_user.id)
+    total_media = query.count()
+    
+    # Count segments for user's media
+    media_ids = [m.id for m in query.all()]
+    total_segments = db.query(CensorSegment).filter(CensorSegment.media_id.in_(media_ids)).count() if media_ids else 0
 
     by_status = {
-        ProcessStatus.CREATED: db.query(ProcessedMedia).filter(ProcessedMedia.status == ProcessStatus.CREATED).count(),
-        ProcessStatus.PROCESSING: db.query(ProcessedMedia).filter(ProcessedMedia.status == ProcessStatus.PROCESSING).count(),
-        ProcessStatus.DONE: db.query(ProcessedMedia).filter(ProcessedMedia.status == ProcessStatus.DONE).count(),
-        ProcessStatus.FAILED: db.query(ProcessedMedia).filter(ProcessedMedia.status == ProcessStatus.FAILED).count(),
+        ProcessStatus.CREATED: query.filter(ProcessedMedia.status == ProcessStatus.CREATED).count(),
+        ProcessStatus.PROCESSING: query.filter(ProcessedMedia.status == ProcessStatus.PROCESSING).count(),
+        ProcessStatus.DONE: query.filter(ProcessedMedia.status == ProcessStatus.DONE).count(),
+        ProcessStatus.FAILED: query.filter(ProcessedMedia.status == ProcessStatus.FAILED).count(),
     }
 
     by_type = {}
-    for row in db.query(ProcessedMedia.input_type).distinct():
-        by_type[row[0]] = db.query(ProcessedMedia).filter(ProcessedMedia.input_type == row[0]).count()
+    for row in query.with_entities(ProcessedMedia.input_type).distinct():
+        by_type[row[0]] = query.filter(ProcessedMedia.input_type == row[0]).count()
 
     return StatsResponse(total_media=total_media, total_segments=total_segments, by_status=by_status, by_type=by_type)
 
@@ -181,9 +271,11 @@ def list_media(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     status: str | None = Query(None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    query = db.query(ProcessedMedia)
+    """List media files for the current user."""
+    query = db.query(ProcessedMedia).filter(ProcessedMedia.user_id == current_user.id)
     if status:
         query = query.filter(ProcessedMedia.status == status)
 
@@ -194,20 +286,67 @@ def list_media(
 
 
 @app.get("/media/{media_id}", response_model=MediaResponse)
-def get_media(media_id: int, db: Session = Depends(get_db)):
-    media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+def get_media(
+    media_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific media file (only if it belongs to the current user)."""
+    media = db.query(ProcessedMedia).filter(
+        ProcessedMedia.id == media_id,
+        ProcessedMedia.user_id == current_user.id
+    ).first()
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
     return _to_response(media)
+
+
+async def get_user_from_token_or_query(
+    request: Request,
+    token_param: str | None = Query(None, alias="token"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    db: Session = Depends(get_db),
+) -> User:
+    """Get user from token in header or query parameter (for video player support)."""
+    token_value = None
+    
+    # Try Authorization header first
+    if credentials:
+        token_value = credentials.credentials
+    # Fallback to query parameter (for video player)
+    elif token_param:
+        token_value = token_param
+    
+    if not token_value:
+        raise HTTPException(status_code=401, detail="Token required")
+    
+    try:
+        payload = jwt.decode(token_value, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="User account is inactive")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 @app.get("/download/{media_id}")
 def download_media(
     media_id: int,
     variant: str = Query("processed", regex="^(original|processed)$"),
+    current_user: User = Depends(get_user_from_token_or_query),
     db: Session = Depends(get_db)
 ):
-    media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+    """Download a media file (only if it belongs to the current user)."""
+    media = db.query(ProcessedMedia).filter(
+        ProcessedMedia.id == media_id,
+        ProcessedMedia.user_id == current_user.id
+    ).first()
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
 
@@ -233,8 +372,16 @@ def download_media(
 
 
 @app.delete("/media/{media_id}", response_model=MessageResponse)
-def delete_media(media_id: int, db: Session = Depends(get_db)):
-    media = db.query(ProcessedMedia).filter(ProcessedMedia.id == media_id).first()
+def delete_media(
+    media_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a media file (only if it belongs to the current user)."""
+    media = db.query(ProcessedMedia).filter(
+        ProcessedMedia.id == media_id,
+        ProcessedMedia.user_id == current_user.id
+    ).first()
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
 
@@ -253,11 +400,19 @@ def delete_media(media_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/outputs/files", response_model=list[RawFileResponse])
-def list_output_files():
+def list_output_files(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List output files for the current user."""
+    # Get all output paths for user's media
+    user_media = db.query(ProcessedMedia).filter(ProcessedMedia.user_id == current_user.id).all()
+    user_output_paths = {Path(m.output_path).name for m in user_media if m.output_path}
+    
     files = []
     if OUTPUTS_DIR.exists():
         for path in OUTPUTS_DIR.iterdir():
-            if path.is_file():
+            if path.is_file() and path.name in user_output_paths:
                 # Get modification time
                 stats = path.stat()
                 files.append(
@@ -270,23 +425,59 @@ def list_output_files():
 
 
 @app.get("/outputs/files/{filename}")
-def get_output_file(filename: str):
+def get_output_file(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get an output file (only if it belongs to the current user)."""
     file_path = OUTPUTS_DIR / filename
-    # Security check: prevent directory traversal
-    if not file_path.resolve().is_relative_to(OUTPUTS_DIR.resolve()):
-         raise HTTPException(status_code=403, detail="Access denied")
+    # Security check: prevent directory traversal and path manipulation
+    try:
+        resolved_path = file_path.resolve()
+        resolved_outputs = OUTPUTS_DIR.resolve()
+        if not str(resolved_path).startswith(str(resolved_outputs)):
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Additional check: ensure no parent directory traversal
+        if ".." in filename or filename.startswith("/") or "\\" in filename:
+            raise HTTPException(status_code=403, detail="Invalid filename")
+    except (ValueError, OSError):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
+    
+    # Check if file belongs to user
+    target_path = str(file_path.resolve())
+    media = db.query(ProcessedMedia).filter(
+        ProcessedMedia.output_path == target_path,
+        ProcessedMedia.user_id == current_user.id
+    ).first()
+    
+    if not media:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     return FileResponse(path=file_path)
 
 @app.delete("/outputs/files/{filename}", response_model=MessageResponse)
-def delete_output_file(filename: str, db: Session = Depends(get_db)):
+def delete_output_file(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an output file (only if it belongs to the current user)."""
     file_path = OUTPUTS_DIR / filename
-    # Security check: prevent directory traversal
-    if not file_path.resolve().is_relative_to(OUTPUTS_DIR.resolve()):
-         raise HTTPException(status_code=403, detail="Access denied")
+    # Security check: prevent directory traversal and path manipulation
+    try:
+        resolved_path = file_path.resolve()
+        resolved_outputs = OUTPUTS_DIR.resolve()
+        if not str(resolved_path).startswith(str(resolved_outputs)):
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Additional check: ensure no parent directory traversal
+        if ".." in filename or filename.startswith("/") or "\\" in filename:
+            raise HTTPException(status_code=403, detail="Invalid filename")
+    except (ValueError, OSError):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -294,8 +485,11 @@ def delete_output_file(filename: str, db: Session = Depends(get_db)):
     # Resolve absolute path to match against DB
     target_path = str(file_path.resolve())
 
-    # Find associated media record
-    media = db.query(ProcessedMedia).filter(ProcessedMedia.output_path == target_path).first()
+    # Find associated media record (only for current user)
+    media = db.query(ProcessedMedia).filter(
+        ProcessedMedia.output_path == target_path,
+        ProcessedMedia.user_id == current_user.id
+    ).first()
 
     if media:
         input_path = Path(media.input_path) if media.input_path else None
@@ -316,7 +510,10 @@ def delete_output_file(filename: str, db: Session = Depends(get_db)):
 
     
 @app.get("/debug/logs", response_class=PlainTextResponse)
-def get_logs():
+def get_logs(
+    current_user: User = Depends(get_current_user)
+):
+    """Get backend logs (admin only - requires authentication)."""
     log_path = Path("backend.log")
     if not log_path.exists():
         return ""
@@ -408,6 +605,7 @@ async def process_file(
     subtitle_file: UploadFile = File(None),
     filter_audio: bool = Query(True),
     filter_video: bool = Query(False),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if not file.filename:
@@ -450,10 +648,12 @@ async def process_file(
     input_type = _detect_input_type(upload_path)
     file_hash = _compute_file_hash(upload_path)
 
+    # Check for existing media with same hash and filters (only for this user)
     existing = (
         db.query(ProcessedMedia)
         .filter(
             and_(
+                ProcessedMedia.user_id == current_user.id,
                 ProcessedMedia.file_hash == file_hash,
                 ProcessedMedia.filter_audio == filter_audio,
                 ProcessedMedia.filter_video == filter_video,
@@ -468,6 +668,7 @@ async def process_file(
         return _to_response(existing)
 
     media = ProcessedMedia(
+        user_id=current_user.id,
         input_path=str(upload_path),
         input_type=input_type,
         file_hash=file_hash,
@@ -489,4 +690,4 @@ async def process_file(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8080")), reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)

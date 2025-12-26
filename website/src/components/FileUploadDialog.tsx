@@ -12,6 +12,8 @@ import ProcessingState from "./ProcessingState";
 import OutputPreview from "./OutputPreview";
 import { uploadFile, MediaResponse, getMedia } from "@/lib/api";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { SignInModal } from "./AuthModals";
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -26,6 +28,7 @@ interface FileUploadDialogProps {
 type DialogState = "upload" | "processing" | "preview";
 
 const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogProps) => {
+  const { isAuthenticated } = useAuth();
   const [dragActive, setDragActive] = useState(false);
   const [subtitleDragActive, setSubtitleDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -111,6 +114,11 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
   }, [onOpenChange]);
 
   const handleProcess = useCallback(async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to process files");
+      return;
+    }
+    
     if (isStream) {
       // Stream logic placeholder
       toast.error("Streaming not implemented yet");
@@ -183,9 +191,13 @@ const FileUploadDialog = ({ open, onOpenChange, filterMode }: FileUploadDialogPr
     } catch (error: any) {
       console.error(error);
       setDialogState("upload");
-      toast.error(error.message || "Processing failed. Please try again.");
+      if (error.message?.includes("Unauthorized")) {
+        toast.error("Please sign in to process files");
+      } else {
+        toast.error(error.message || "Processing failed. Please try again.");
+      }
     }
-  }, [selectedFile, isStream, filterMode, subtitleFile]);
+  }, [selectedFile, isStream, filterMode, subtitleFile, isAuthenticated]);
 
 
   const handleReset = useCallback(() => {
