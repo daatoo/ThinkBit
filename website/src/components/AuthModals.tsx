@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Shield, Lock, Mail, User } from "lucide-react";
+import { Lock, Mail, User } from "lucide-react";
 
 interface AuthModalProps {
   children: React.ReactNode;
@@ -32,8 +32,8 @@ export const SignInModal = ({ children }: AuthModalProps) => {
       <DialogContent className="sm:max-w-[425px] glass-card border-primary/20">
         <DialogHeader>
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+            <div className="flex justify-center mb-4">
+              <img src="/logo.png" alt="AegisAI Logo" className="w-12 h-12 object-contain" />
             </div>
           </div>
           <DialogTitle className="text-center text-2xl gradient-text font-bold">Welcome Back</DialogTitle>
@@ -80,8 +80,8 @@ export const SignUpModal = ({ children }: AuthModalProps) => {
       <DialogContent className="sm:max-w-[425px] glass-card border-secondary/20">
         <DialogHeader>
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-secondary" />
+            <div className="flex justify-center mb-4">
+              <img src="/logo.png" alt="AegisAI Logo" className="w-12 h-12 object-contain" />
             </div>
           </div>
           <DialogTitle className="text-center text-2xl gradient-text font-bold">Get Started</DialogTitle>

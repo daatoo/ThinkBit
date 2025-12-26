@@ -1,4 +1,4 @@
-import { Shield, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { InfoModal } from "./InfoModals";
 import { SignInModal, SignUpModal } from "./AuthModals";
@@ -14,8 +14,8 @@ const Header = () => {
       <nav className="relative max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
         {/* Logo */}
         <a href="/" className="flex items-center gap-3 group">
-          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
-            <Shield className="w-5 h-5 text-primary-foreground" />
+          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25 shadow-inner group-hover:shadow-primary/40 transition-shadow">
+            <img src="/logo.png" alt="AegisAI Logo" className="w-8 h-8 object-contain drop-shadow-[0_0_2px_rgba(255,255,255,0.9)]" />
           </div>
           <span className="text-xl font-bold gradient-text">AegisAI</span>
         </a>
@@ -60,28 +60,30 @@ const Header = () => {
       </nav>
 
       {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-card/95 backdrop-blur-xl border-b border-border/50 py-4 px-8">
-          <div className="flex flex-col gap-4">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground">Features</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground">Pricing</a>
+      {
+        mobileMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 right-0 bg-card/95 backdrop-blur-xl border-b border-border/50 py-4 px-8">
+            <div className="flex flex-col gap-4">
+              <a href="#features" className="text-sm text-muted-foreground hover:text-foreground">Features</a>
+              <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground">Pricing</a>
 
-            <InfoModal type="about">
-              <button className="text-sm text-muted-foreground hover:text-foreground text-left w-full">
-                About
-              </button>
-            </InfoModal>
-            <hr className="border-border/50" />
-            <SignInModal>
-              <button className="text-sm text-muted-foreground hover:text-foreground text-left">Sign In</button>
-            </SignInModal>
-            <SignUpModal>
-              <button className="gradient-button text-sm">Get Started</button>
-            </SignUpModal>
+              <InfoModal type="about">
+                <button className="text-sm text-muted-foreground hover:text-foreground text-left w-full">
+                  About
+                </button>
+              </InfoModal>
+              <hr className="border-border/50" />
+              <SignInModal>
+                <button className="text-sm text-muted-foreground hover:text-foreground text-left">Sign In</button>
+              </SignInModal>
+              <SignUpModal>
+                <button className="gradient-button text-sm">Get Started</button>
+              </SignUpModal>
+            </div>
           </div>
-        </div>
-      )}
-    </header>
+        )
+      }
+    </header >
   );
 };
 
