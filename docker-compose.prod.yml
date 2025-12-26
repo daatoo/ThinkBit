@@ -11,7 +11,7 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /secrets/aegis-key.json
     restart: unless-stopped
     expose:
-      - "8000"
+      - "8080"
     volumes:
       # persist uploads/outputs created by your code
       - ./src/backend/uploads:/app/src/backend/uploads

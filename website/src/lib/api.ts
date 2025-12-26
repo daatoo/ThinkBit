@@ -3,7 +3,7 @@
 // but simplest is also /api + vite proxy.
 export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  "http://localhost:8000";
+  "http://localhost:8080";
 
 // Auth token management
 const TOKEN_KEY = "auth_token";

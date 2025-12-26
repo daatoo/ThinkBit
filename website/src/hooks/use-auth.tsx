@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { getCurrentUser, getToken, logout as apiLogout, UserResponse } from "@/lib/api";
+import { getCurrentUser, getToken, logout as apiLogout, setToken, UserResponse } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextType {
@@ -39,7 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (token: string) => {
-    // Token is already set by the login function in api.ts
+    // Set the token if provided (in case it wasn't set by api.ts)
+    if (token) {
+      setToken(token);
+    }
     await checkAuth();
   };
 

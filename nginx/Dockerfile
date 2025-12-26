@@ -6,6 +6,11 @@ WORKDIR /app/website
 RUN npm ci
 
 COPY website/ /app/website/
+
+# Set API URL for production build (defaults to /api for nginx proxy)
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+
 RUN npm run build
 
 FROM nginx:alpine

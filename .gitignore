@@ -47,6 +47,9 @@ htmlcov/
 aegis-key.json
 *.key.json
 credentials.json
+secrets/
+*.pem
+*.key
 
 # Database files
 *.db
