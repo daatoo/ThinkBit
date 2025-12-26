@@ -163,7 +163,7 @@ app = FastAPI(
     title="AegisAI",
     version="1.0.0",
     lifespan=lifespan,
-    root_path="/api",
+    # root_path="/api",  # Only needed when behind reverse proxy (nginx)
 )
 app.add_middleware(
     CORSMiddleware,
@@ -223,7 +223,7 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     
     access_token_expires = timedelta(minutes=60 * 24)  # 24 hours
     access_token = create_access_token(
-        data={"sub": user.id}, expires_delta=access_token_expires
+        data={"sub": str(user.id)}, expires_delta=access_token_expires  # JWT sub must be string
     )
     return Token(access_token=access_token, token_type="bearer")
 
@@ -322,9 +322,14 @@ async def get_user_from_token_or_query(
     
     try:
         payload = jwt.decode(token_value, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
+        user_id_str = payload.get("sub")
+        if not user_id_str:
             raise HTTPException(status_code=401, detail="Invalid token")
+        # Convert string back to int (JWT sub must be string)
+        try:
+            user_id = int(user_id_str)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=401, detail="Invalid token format")
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=401, detail="User not found")

@@ -4,8 +4,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -44,8 +44,11 @@ except Exception:
         expected = hashlib.sha256(plain.encode()).hexdigest()
         return hashed[7:] == expected
 
-# OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# OAuth2 scheme - auto_error=False allows us to handle errors manually
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+
+# HTTPBearer for more reliable token extraction
+http_bearer = HTTPBearer(auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -96,25 +99,48 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
     db: Session = Depends(get_db),
 ) -> User:
     """Get the current authenticated user from JWT token."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    if credentials is None:
+        logger.info("get_current_user: No credentials provided")
+        raise credentials_exception
+    
+    token = credentials.credentials
+    logger.info(f"get_current_user: Token received (length: {len(token)}, first 20 chars: {token[:20]}...)")
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
+            logger.warning("get_current_user: No 'sub' in token payload")
             raise credentials_exception
-    except JWTError:
+        # Convert string back to int (JWT sub must be string)
+        try:
+            user_id: int = int(user_id_str)
+        except (ValueError, TypeError):
+            logger.error(f"get_current_user: Invalid user_id format: {user_id_str}")
+            raise credentials_exception
+        logger.info(f"get_current_user: Token decoded successfully, user_id: {user_id}")
+    except JWTError as e:
+        logger.error(f"get_current_user: JWT decode error: {type(e).__name__}: {e}")
+        # SECURITY: Don't log SECRET_KEY even partially - it's a security risk
+        logger.error(f"get_current_user: Token validation failed (SECRET_KEY length: {len(SECRET_KEY)})")
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
+        logger.warning(f"get_current_user: User with ID {user_id} not found in database")
         raise credentials_exception
     
     if not user.is_active:
@@ -123,5 +149,6 @@ async def get_current_user(
             detail="User account is inactive"
         )
     
+    logger.debug(f"get_current_user: Successfully authenticated user {user.email}")
     return user
 

@@ -65,7 +65,12 @@ export async function login(credentials: LoginRequest): Promise<TokenResponse> {
   }
 
   const data: TokenResponse = await response.json();
-  setToken(data.access_token);
+  if (data.access_token) {
+    setToken(data.access_token);
+    console.debug("Token saved to localStorage");
+  } else {
+    console.error("No access_token in login response");
+  }
   return data;
 }
 
@@ -85,12 +90,23 @@ export async function register(data: RegisterRequest): Promise<UserResponse> {
 }
 
 export async function getCurrentUser(): Promise<UserResponse> {
+  const headers = getAuthHeaders();
+  const token = getToken();
+  
+  // Debug logging (remove in production)
+  if (!token) {
+    console.warn("No token found in localStorage");
+  }
+  
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    headers: getAuthHeaders(),
+    headers,
   });
 
   if (!response.ok) {
     if (response.status === 401) {
+      const errorText = await response.text().catch(() => "Unauthorized");
+      console.error("401 Unauthorized:", errorText);
+      console.error("Token was:", token ? `${token.substring(0, 20)}...` : "missing");
       removeToken();
       throw new Error("Unauthorized");
     }

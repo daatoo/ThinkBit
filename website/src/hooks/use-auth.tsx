@@ -19,12 +19,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   const checkAuth = async () => {
-    if (getToken()) {
+    const token = getToken();
+    if (token) {
       try {
         const userData = await getCurrentUser();
         setUser(userData);
       } catch (error) {
-        // Token invalid, clear it
+        // Token invalid or expired, clear it silently
+        console.debug("Token validation failed, clearing auth state");
         apiLogout();
         setUser(null);
       }
@@ -39,11 +41,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (token: string) => {
-    // Set the token if provided (in case it wasn't set by api.ts)
-    if (token) {
-      setToken(token);
+    if (!token) {
+      throw new Error("No token provided");
     }
-    await checkAuth();
+    
+    // Token should already be set by api.ts login(), but ensure it's set
+    setToken(token);
+    
+    // Fetch user data immediately (token is now in localStorage)
+    try {
+      const userData = await getCurrentUser();
+      setUser(userData);
+      setLoading(false);
+    } catch (error) {
+      // Token invalid, clear it
+      apiLogout();
+      setUser(null);
+      setLoading(false);
+      throw error;
+    }
   };
 
   const logout = () => {

@@ -36,6 +36,7 @@ export const SignInModal = ({ children }: AuthModalProps) => {
 
     try {
       const response = await login({ email, password });
+      // Token is already set by login(), just update auth state
       await authLogin(response.access_token);
       toast({
         title: "Welcome back!",
@@ -136,6 +137,7 @@ export const SignUpModal = ({ children }: AuthModalProps) => {
       await register({ email, password });
       // Auto-login after registration
       const loginResponse = await login({ email, password });
+      // Token is already set by login(), just update auth state
       await authLogin(loginResponse.access_token);
       toast({
         title: "Account created!",
