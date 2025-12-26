@@ -1,6 +1,13 @@
 # AegisAI
 <img width="2080" height="2048" alt="Gemini_Generated_Image_xe47osxe47osxe47" src="https://github.com/user-attachments/assets/3e50e635-d531-4c52-8d35-f4e6e1e94a1e" />
 
+## Various Links
+
+Talking Head Demo: [https://drive.google.com/file/d/1jWHam4yYNegbHlylAU9U7OhFNFKQYu8E/view?usp=sharing](https://drive.google.com/file/d/1jWHam4yYNegbHlylAU9U7OhFNFKQYu8E/view?usp=drive_link)
+Corpo AD: [(https://drive.google.com/file/d/1rqE_tggE8wSom52_TNcpWHyJgDgX9ET8/view?usp=sharing](https://drive.google.com/file/d/1rqE_tggE8wSom52_TNcpWHyJgDgX9ET8/view?usp=drive_link)
+Presentation Slides: https://docs.google.com/presentation/d/15p_5xFzWq16Kmwi1_kcNPC2Wq4vW8rqwfkKQqdYZwyo/edit?usp=sharing
+
+
 ## Problem Statement
 Manually censoring inappropriate content in video and audio for different audiences is a time-consuming, costly, and inconsistent process. Parents lack effective, customizable tools to filter content for their children in real-time, while television studios and content creators face significant overhead in producing multiple versions of content for various broadcasting standards. An AI-powered system is required to automatically detect and censor user-defined improper content (e.g., profanity, graphic violence) in video streams, providing a reliable, efficient, and customizable solution.
 
