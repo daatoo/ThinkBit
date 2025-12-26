@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Shield, Lock, Mail, User } from "lucide-react";
+import { login, register } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AuthModalProps {
   children: React.ReactNode;
@@ -19,11 +22,35 @@ interface AuthModalProps {
 
 export const SignInModal = ({ children }: AuthModalProps) => {
   const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const { login: authLogin } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Sign In Attempted");
-    setOpen(false);
+    setLoading(true);
+    
+    try {
+      const tokenResponse = await login({ email, password });
+      await authLogin(tokenResponse.access_token);
+      toast({
+        title: "Success",
+        description: "Logged in successfully!",
+      });
+      setOpen(false);
+      // Reload page to update auth state
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Login failed",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,18 +73,35 @@ export const SignInModal = ({ children }: AuthModalProps) => {
             <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="email" type="email" placeholder="name@example.com" className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50" required />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="name@example.com" 
+                className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+                disabled={loading}
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="password" type="password" className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50" required />
+              <Input 
+                id="password" 
+                type="password" 
+                className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+                disabled={loading}
+              />
             </div>
           </div>
-          <Button type="submit" className="w-full gradient-button">
-            Sign In
+          <Button type="submit" className="w-full gradient-button" disabled={loading}>
+            {loading ? "Signing In..." : "Sign In"}
           </Button>
         </form>
       </DialogContent>
@@ -67,11 +111,31 @@ export const SignInModal = ({ children }: AuthModalProps) => {
 
 export const SignUpModal = ({ children }: AuthModalProps) => {
   const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Sign Up Attempted");
-    setOpen(false);
+    setLoading(true);
+    
+    try {
+      await register({ email, password });
+      toast({
+        title: "Success",
+        description: "Account created! Please sign in.",
+      });
+      setOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Registration failed",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -91,28 +155,38 @@ export const SignUpModal = ({ children }: AuthModalProps) => {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label htmlFor="signup-name">Full Name</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="signup-name" placeholder="John Doe" className="pl-10 bg-background/50 border-secondary/20 focus:border-secondary/50" required />
-            </div>
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="signup-email">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="signup-email" type="email" placeholder="name@example.com" className="pl-10 bg-background/50 border-secondary/20 focus:border-secondary/50" required />
+              <Input 
+                id="signup-email" 
+                type="email" 
+                placeholder="name@example.com" 
+                className="pl-10 bg-background/50 border-secondary/20 focus:border-secondary/50" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+                disabled={loading}
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="signup-password">Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="signup-password" type="password" className="pl-10 bg-background/50 border-secondary/20 focus:border-secondary/50" required />
+              <Input 
+                id="signup-password" 
+                type="password" 
+                className="pl-10 bg-background/50 border-secondary/20 focus:border-secondary/50" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+                disabled={loading}
+              />
             </div>
           </div>
-          <Button type="submit" className="w-full gradient-button from-secondary to-teal-500 hover:shadow-secondary/50">
-            Create Account
+          <Button type="submit" className="w-full gradient-button from-secondary to-teal-500 hover:shadow-secondary/50" disabled={loading}>
+            {loading ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
       </DialogContent>

@@ -1,16 +1,24 @@
 import { useState, useEffect } from "react";
 import { Download, Trash2, FileVideo, Clock, RefreshCw } from "lucide-react";
-import { listMedia, deleteMedia, getDownloadUrl, MediaResponse } from "@/lib/api";
+import { listMedia, deleteMedia, downloadMedia, MediaResponse } from "@/lib/api";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { SignInModal } from "./AuthModals";
 
 const OutputsSection = () => {
     const [outputs, setOutputs] = useState<MediaResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const { isAuthenticated, loading: authLoading } = useAuth();
 
     const fetchOutputs = async () => {
+        if (!isAuthenticated) {
+            setLoading(false);
+            return;
+        }
+        
         try {
             const data = await listMedia("DONE");
             // Sort by newest first
@@ -28,12 +36,13 @@ const OutputsSection = () => {
     };
 
     useEffect(() => {
-        fetchOutputs();
-
-        // Poll for updates every 10 seconds
-        const interval = setInterval(fetchOutputs, 10000);
-        return () => clearInterval(interval);
-    }, []);
+        if (!authLoading) {
+            fetchOutputs();
+            // Poll for updates every 10 seconds
+            const interval = setInterval(fetchOutputs, 10000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, authLoading]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -47,12 +56,45 @@ const OutputsSection = () => {
             toast.success("File deleted successfully");
         } catch (error) {
             console.error("Failed to delete:", error);
-            toast.error("Failed to delete file");
+            toast.error(error instanceof Error ? error.message : "Failed to delete file");
         }
     };
 
-    if (loading && outputs.length === 0) {
+    const handleDownload = async (item: MediaResponse) => {
+        try {
+            const filename = item.output_path?.split(/[/\\]/).pop() || `video_${item.id}.mp4`;
+            await downloadMedia(item.id, "processed", filename);
+            toast.success("Download started");
+        } catch (error) {
+            console.error("Failed to download:", error);
+            toast.error(error instanceof Error ? error.message : "Failed to download file");
+        }
+    };
+
+    if (authLoading || (loading && outputs.length === 0)) {
         return null;
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <section id="outputs" className="py-20 px-8 relative overflow-hidden">
+                <div className="max-w-6xl mx-auto">
+                    <div className="text-center py-12">
+                        <h2 className="text-3xl font-bold mb-4">
+                            <span className="gradient-text">Processed Outputs</span>
+                        </h2>
+                        <p className="text-muted-foreground mb-6">
+                            Please sign in to view your processed files.
+                        </p>
+                        <SignInModal>
+                            <button className="gradient-button px-6 py-3">
+                                Sign In
+                            </button>
+                        </SignInModal>
+                    </div>
+                </div>
+            </section>
+        );
     }
 
     if (!loading && outputs.length === 0) {
@@ -115,15 +157,13 @@ const OutputsSection = () => {
                             </div>
 
                             <div className="mt-auto flex gap-3 pt-4 border-t border-border/50">
-                                <a
-                                    href={getDownloadUrl(item.id)}
+                                <button
+                                    onClick={() => handleDownload(item)}
                                     className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors text-sm"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
                                 >
                                     <Download className="w-4 h-4" />
                                     Download
-                                </a>
+                                </button>
 
                                 <button
                                     onClick={() => handleDelete(item.id)}
