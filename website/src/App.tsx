@@ -7,7 +7,6 @@ import { AuthProvider } from "@/hooks/use-auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import FreeTrialCheckout from "./pages/FreeTrialCheckout";
-import BackendLogs from "./pages/BackendLogs";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +20,6 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/free-trial" element={<FreeTrialCheckout />} />
-            <Route path="/backend" element={<BackendLogs />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -17,7 +17,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full">
       {/* Blur backdrop */}
       <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-b border-border/50" />
-      
+
       <nav className="relative max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
         {/* Logo */}
         <a href="/" className="flex items-center gap-3 group">
@@ -35,9 +35,7 @@ const Header = () => {
           <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Pricing
           </a>
-          <a href="/backend" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Backend
-          </a>
+
           <InfoModal type="about">
             <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               About
@@ -78,7 +76,7 @@ const Header = () => {
         </div>
 
         {/* Mobile menu button */}
-        <button 
+        <button
           className="md:hidden p-2 text-muted-foreground hover:text-foreground"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
@@ -92,7 +90,7 @@ const Header = () => {
           <div className="flex flex-col gap-4">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground">Pricing</a>
-            <a href="/backend" className="text-sm text-muted-foreground hover:text-foreground">Backend</a>
+
             <InfoModal type="about">
               <button className="text-sm text-muted-foreground hover:text-foreground text-left w-full">
                 About
