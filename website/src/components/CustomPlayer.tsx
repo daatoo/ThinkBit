@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { Play, Pause, Volume2, VolumeX, Maximize2, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AudioVisualizer from "@/components/ui/AudioVisualizer";
+import { Segment } from "@/lib/api";
 
 interface CustomPlayerProps {
     src: string;
@@ -12,6 +13,7 @@ interface CustomPlayerProps {
     initialIsPlaying?: boolean;
     onTimeUpdate?: (time: number) => void;
     onPlayStateChange?: (isPlaying: boolean) => void;
+    segments?: Segment[];
 }
 
 const CustomPlayer = ({
@@ -22,7 +24,8 @@ const CustomPlayer = ({
     initialTime = 0,
     initialIsPlaying = false,
     onTimeUpdate,
-    onPlayStateChange
+    onPlayStateChange,
+    segments = []
 }: CustomPlayerProps) => {
     const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
     const progressBarRef = useRef<HTMLDivElement>(null);
@@ -249,11 +252,37 @@ const CustomPlayer = ({
 
                     {/* Played */}
                     <div
-                        className="absolute top-0 left-0 h-full bg-primary rounded-full relative"
+                        className="absolute top-0 left-0 h-full bg-primary rounded-full relative z-20"
                         style={{ width: `${progress}%` }}
                     >
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_theme(colors.primary.DEFAULT)] opacity-0 group-hover/progress:opacity-100 transition-opacity" />
                     </div>
+
+                    {/* Filtered Segments */}
+                    {segments.map((segment, idx) => {
+                        // In audio mode, ignore non-mute segments
+                        if (type === 'audio' && segment.action_type !== 'mute') return null;
+
+                        const startPercent = (segment.start_ms / 1000 / (duration || 1)) * 100;
+                        const widthPercent = ((segment.end_ms - segment.start_ms) / 1000 / (duration || 1)) * 100;
+
+                        // Neon Blue (#00FFFF) for mute, Neon Orange (#FF5F1F) for blur
+                        const color = segment.action_type === 'mute' ? '#00FFFF' : '#FF5F1F';
+
+                        return (
+                            <div
+                                key={`${segment.id}-${idx}`}
+                                className="absolute top-0 h-full z-10 opacity-70 pointer-events-none"
+                                style={{
+                                    left: `${startPercent}%`,
+                                    width: `${widthPercent}%`,
+                                    backgroundColor: color,
+                                    boxShadow: `0 0 5px ${color}`
+                                }}
+                                title={`${segment.action_type}: ${formatTime(segment.start_ms/1000)} - ${formatTime(segment.end_ms/1000)}`}
+                            />
+                        );
+                    })}
                 </div>
 
                 {/* Buttons & Info */}
