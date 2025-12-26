@@ -61,6 +61,7 @@ const OutputPreview = ({ fileName, fileType, filterMode, onReset, media }: Outpu
         src={downloadUrl}
         type={fileType}
         className="w-full aspect-video"
+        segments={media.segments}
       />
 
       {/* Comparison toggle */}
