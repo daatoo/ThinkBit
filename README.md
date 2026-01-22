@@ -3,8 +3,8 @@
 
 ## Various Links
 
-* Talking Head Demo: [[https://drive.google.com/file/d/1jWHam4yYNegbHlylAU9U7OhFNFKQYu8E/view?usp=sharing](https://drive.google.com/file/d/1jWHam4yYNegbHlylAU9U7OhFNFKQYu8E/view?usp=drive_link]
-* Corpo AD: [[(https://drive.google.com/file/d/1rqE_tggE8wSom52_TNcpWHyJgDgX9ET8/view?usp=sharing](https://drive.google.com/file/d/1rqE_tggE8wSom52_TNcpWHyJgDgX9ET8/view?usp=drive_link)]
+* Talking Head Demo: https://drive.google.com/file/d/1rqE_tggE8wSom52_TNcpWHyJgDgX9ET8/view
+* Corpo AD: https://drive.google.com/file/d/1jWHam4yYNegbHlylAU9U7OhFNFKQYu8E/view
 * Presentation Slides: https://docs.google.com/presentation/d/15p_5xFzWq16Kmwi1_kcNPC2Wq4vW8rqwfkKQqdYZwyo/edit?usp=sharing
 
 
